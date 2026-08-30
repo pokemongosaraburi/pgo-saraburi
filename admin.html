@@ -262,30 +262,69 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <!-- DRAW -->
   <div class="tab-panel" id="panel-draw">
     <div class="card">
-      <h2>🎁 สุ่มผู้โชคดี</h2>
-      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <select id="draw-act" onchange="loadDrawCandidates()" style="flex:1;min-width:160px;padding:8px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px">
-          <option value="">เลือกกิจกรรม</option>
-        </select>
-        <select id="draw-team" onchange="loadDrawCandidates()" style="padding:8px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px">
-          <option value="">ทุกทีม</option>
-          <option value="mystic">💙 Mystic</option>
-          <option value="valor">❤️ Valor</option>
-          <option value="instinct">💛 Instinct</option>
-        </select>
+      <h2>⚙️ ตั้งค่าการสุ่ม</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">กิจกรรม</label>
+          <select id="draw-act" onchange="loadDrawCandidates()" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px">
+            <option value="">เลือกกิจกรรม</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">กรองทีม</label>
+          <select id="draw-team" onchange="loadDrawCandidates()" style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px">
+            <option value="">ทุกทีม</option>
+            <option value="mystic">💙 Mystic</option>
+            <option value="valor">❤️ Valor</option>
+            <option value="instinct">💛 Instinct</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">เช็กอินขั้นต่ำ (ครั้ง)</label>
+          <input class="form-input" id="draw-min-ci" type="number" value="0" min="0" onchange="loadDrawCandidates()">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">จำนวนรางวัล</label>
+          <input class="form-input" id="draw-count" type="number" value="1" min="1" max="20" oninput="updatePrizeInputs()">
+        </div>
+        <div id="prize-names-wrap" style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="form-group" style="grid-column:1/-1">
+            <label class="form-label">รางวัลอันดับ 1</label>
+            <input class="form-input" id="prize-name-0" type="text" placeholder="เช่น Premium Pass x1">
+          </div>
+        </div>
       </div>
-      <div id="draw-eligible" style="font-size:13px;color:#6b7280;margin-bottom:14px"></div>
+      <div id="draw-eligible" style="font-size:13px;color:#6b7280;margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>🎲 สุ่มรางวัล</h2>
       <div class="draw-stage">
         <div class="draw-slot" id="draw-slot">———</div>
       </div>
-      <button class="btn btn-primary" id="draw-btn" onclick="doDraw()" style="margin-bottom:8px" disabled>🎲 สุ่มผู้โชคดี</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="btn btn-primary" id="draw-btn" onclick="doDraw()" disabled>🎲 สุ่มผู้โชคดี</button>
+        <button class="btn btn-secondary btn-sm" onclick="resetDraw()" style="color:#dc2626;border-color:#fecaca">🔄 Reset การสุ่ม</button>
+      </div>
       <div id="draw-winner-area"></div>
     </div>
+
     <div class="card">
-      <h2>ผู้ได้รับรางวัลในกิจกรรมนี้</h2>
+      <h2>🏆 ผู้ได้รับรางวัลในกิจกรรมนี้</h2>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+        <button class="btn btn-secondary btn-sm" onclick="exportWinnersCSV()">📥 Export CSV</button>
+      </div>
       <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>อันดับ</th><th>ชื่อ</th><th>Trainer</th><th>ทีม</th><th>เวลา</th></tr></thead>
-        <tbody id="draw-winners-list"><tr><td colspan="5" class="empty">เลือกกิจกรรมก่อน</td></tr></tbody>
+        <thead><tr><th>อันดับ</th><th>รางวัล</th><th>ชื่อ</th><th>Trainer</th><th>ทีม</th><th>เวลา</th><th>สถานะ</th></tr></thead>
+        <tbody id="draw-winners-list"><tr><td colspan="7" class="empty">เลือกกิจกรรมก่อน</td></tr></tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h2>📋 ประวัติการสุ่มทั้งหมด</h2>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>กิจกรรม</th><th>อันดับ</th><th>รางวัล</th><th>ชื่อ</th><th>ทีม</th><th>เวลา</th><th>สถานะ</th></tr></thead>
+        <tbody id="draw-history-list"><tr><td colspan="7" class="empty">กำลังโหลด...</td></tr></tbody>
       </table></div>
     </div>
   </div>
@@ -745,6 +784,7 @@ function useMyGPS() {
 }
 
 // ==================== Draw ====================
+
 async function loadActivitiesForDraw() {
   try {
     let acts=[];
@@ -755,32 +795,55 @@ async function loadActivitiesForDraw() {
       acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
     }
     $('draw-act').innerHTML='<option value="">เลือกกิจกรรม</option>'+acts.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+    loadDrawHistory();
   } catch(e) {}
 }
 
+function updatePrizeInputs() {
+  const n=Math.min(parseInt($('draw-count').value)||1,20);
+  const wrap=$('prize-names-wrap');
+  const existing=[...wrap.querySelectorAll('input[id^="prize-name-"]')].map(i=>i.value);
+  wrap.innerHTML=Array.from({length:n},(_,i)=>`
+    <div class="form-group" style="grid-column:${n===1?'1/-1':'auto'}">
+      <label class="form-label">รางวัลอันดับ ${i+1}</label>
+      <input class="form-input" id="prize-name-${i}" type="text" placeholder="เช่น Premium Pass x1" value="${existing[i]||''}">
+    </div>`).join('');
+}
+
 async function loadDrawCandidates() {
-  const actId=$('draw-act').value;
-  const team= $('draw-team').value;
+  const actId=$('draw-act').value, team=$('draw-team').value;
+  const minCI=parseInt($('draw-min-ci').value)||0;
   drawCandidates=[]; drawWinners=[];
   $('draw-eligible').textContent='';
   $('draw-btn').disabled=true;
-  $('draw-winners-list').innerHTML='<tr><td colspan="5" class="empty">กำลังโหลด...</td></tr>';
-  if (!actId) { $('draw-eligible').textContent='กรุณาเลือกกิจกรรม'; return; }
+  $('draw-winners-list').innerHTML='<tr><td colspan="7" class="empty">กำลังโหลด...</td></tr>';
+  if (!actId) { $('draw-eligible').textContent='กรุณาเลือกกิจกรรม'; $('draw-winners-list').innerHTML='<tr><td colspan="7" class="empty">เลือกกิจกรรมก่อน</td></tr>'; return; }
   try {
-    let checkins=[],winners=[];
+    let checkins=[],winners=[],ciCountMap={};
     if (IS_CONFIGURED && db) {
       let q=db.from('checkins').select('*').eq('activity_id',actId);
       if (team) q=q.eq('member_team',team);
-      const [{data:cs},{data:ws}]=await Promise.all([q,db.from('draw_winners').select('*').eq('activity_id',actId)]);
-      checkins=cs||[]; winners=ws||[];
+      const queries=[q, db.from('draw_winners').select('*').eq('activity_id',actId)];
+      if (minCI>0) queries.push(db.from('checkins').select('member_id'));
+      const results=await Promise.all(queries);
+      checkins=results[0].data||[]; winners=results[1].data||[];
+      if (minCI>0)(results[2].data||[]).forEach(c=>{ ciCountMap[c.member_id]=(ciCountMap[c.member_id]||0)+1; });
     } else {
-      checkins=(JSON.parse(localStorage.getItem('pgo_checkins')||'[]')).filter(c=>(c.activity_id===actId||c.activityId===actId)&&(!team||(c.member_team||c.memberTeam)===team));
-      winners= (JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]')).filter(w=>(w.activity_id===actId||w.activityId===actId));
+      const allLocal=JSON.parse(localStorage.getItem('pgo_checkins')||'[]');
+      checkins=allLocal.filter(c=>(c.activity_id===actId||c.activityId===actId)&&(!team||(c.member_team||c.memberTeam)===team));
+      winners=(JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]')).filter(w=>(w.activity_id===actId||w.activityId===actId));
+      if (minCI>0) allLocal.forEach(c=>{ const id=c.member_id||c.memberId; ciCountMap[id]=(ciCountMap[id]||0)+1; });
     }
     drawWinners=winners;
     const wonIds=new Set(winners.map(w=>w.member_id||w.memberId));
-    drawCandidates=checkins.filter(c=>!wonIds.has(c.member_id||c.memberId));
-    $('draw-eligible').textContent=`✅ ผู้มีสิทธิ์สุ่ม: ${drawCandidates.length} คน (ชนะแล้ว: ${winners.length} คน)`;
+    drawCandidates=checkins.filter(c=>{
+      const id=c.member_id||c.memberId;
+      if (wonIds.has(id)) return false;
+      if (minCI>0 && (ciCountMap[id]||0)<minCI) return false;
+      return true;
+    });
+    const minNote=minCI>0?` · เช็กอินขั้นต่ำ ${minCI} ครั้ง`:'';
+    $('draw-eligible').textContent=`✅ ผู้มีสิทธิ์สุ่ม: ${drawCandidates.length} คน  (ชนะแล้ว: ${winners.length} คน)${minNote}`;
     $('draw-btn').disabled=drawCandidates.length===0;
     renderWinnersTable(winners);
   } catch(e) { $('draw-eligible').textContent='เกิดข้อผิดพลาด: '+e.message; }
@@ -788,42 +851,138 @@ async function loadDrawCandidates() {
 
 function renderWinnersTable(winners) {
   const tbody=$('draw-winners-list');
-  if (!winners.length) { tbody.innerHTML='<tr><td colspan="5" class="empty">ยังไม่มีผู้ได้รับรางวัล</td></tr>'; return; }
+  if (!winners.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">ยังไม่มีผู้ได้รับรางวัล</td></tr>'; return; }
   tbody.innerHTML=winners.map((w,i)=>`
     <tr>
       <td style="font-weight:700;color:#E8274B">#${w.prize_rank||i+1}</td>
+      <td style="font-size:12px">${w.prize_name||'-'}</td>
       <td><strong>${w.member_name}</strong></td>
-      <td style="font-size:12px;color:#6b7280">${w.member_gameid}</td>
+      <td style="font-size:12px;color:#6b7280">${w.member_gameid||''}</td>
       <td><span class="badge ${TEAM_B[w.member_team]||''}">${TEAM_LABEL[w.member_team]||''}</span></td>
       <td style="font-size:11px;color:#9ca3af">${fmt(w.drawn_at)}</td>
+      <td>${w.prize_delivered
+        ?`<span style="color:#16a34a;font-size:12px;font-weight:600">✅ ส่งแล้ว</span>`
+        :`<button class="btn btn-sm btn-green" onclick="markDelivered('${w.id}')">📦 ส่งแล้ว</button>`}
+      </td>
     </tr>`).join('');
 }
 
+async function markDelivered(id) {
+  try {
+    if (IS_CONFIGURED && db) {
+      await db.from('draw_winners').update({prize_delivered:true,delivered_at:new Date().toISOString()}).eq('id',id);
+    }
+    await loadDrawCandidates();
+    loadDrawHistory();
+  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+}
+
+async function resetDraw() {
+  const actId=$('draw-act').value;
+  if (!actId) { alert('กรุณาเลือกกิจกรรมก่อน'); return; }
+  if (!confirm('⚠️ ลบรายชื่อผู้ชนะทั้งหมดในกิจกรรมนี้ และเริ่มสุ่มใหม่?')) return;
+  try {
+    if (IS_CONFIGURED && db) {
+      await db.from('draw_winners').delete().eq('activity_id',actId);
+    } else {
+      let ws=JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]');
+      localStorage.setItem('pgo_draw_winners',JSON.stringify(ws.filter(w=>w.activity_id!==actId&&w.activityId!==actId)));
+    }
+    $('draw-slot').textContent='———'; $('draw-winner-area').innerHTML='';
+    await loadDrawCandidates(); loadDrawHistory();
+  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+}
+
+function exportWinnersCSV() {
+  if (!drawWinners.length) { alert('ไม่มีรายชื่อผู้ชนะ'); return; }
+  const actName=$('draw-act').options[$('draw-act').selectedIndex]?.text||'กิจกรรม';
+  const rows=[['อันดับ','รางวัล','ชื่อ','Trainer Name','ทีม','เวลาสุ่ม','ส่งรางวัลแล้ว']];
+  drawWinners.forEach((w,i)=>rows.push([w.prize_rank||i+1,w.prize_name||'-',w.member_name,w.member_gameid||'',TEAM_LABEL[w.member_team]||w.member_team||'',fmt(w.drawn_at),w.prize_delivered?'✓':'']));
+  const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,﻿'+encodeURIComponent(csv);
+  a.download=`ผู้โชคดี_${actName}_${new Date().toLocaleDateString('th-TH')}.csv`;
+  a.click();
+}
+
+async function loadDrawHistory() {
+  const tbody=$('draw-history-list');
+  tbody.innerHTML='<tr><td colspan="7"><div class="spin"></div></td></tr>';
+  try {
+    let history=[],actMap={};
+    if (IS_CONFIGURED && db) {
+      const [{data:acts},{data:ws}]=await Promise.all([
+        db.from('activities').select('id,name'),
+        db.from('draw_winners').select('*').order('drawn_at',{ascending:false}).limit(200)
+      ]);
+      (acts||[]).forEach(a=>actMap[a.id]=a.name);
+      history=ws||[];
+    } else {
+      const acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
+      acts.forEach(a=>actMap[a.id]=a.name);
+      history=[...JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]')].reverse();
+    }
+    if (!history.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">ยังไม่มีประวัติการสุ่ม</td></tr>'; return; }
+    tbody.innerHTML=history.map((w,i)=>`
+      <tr>
+        <td style="font-size:12px;color:#6b7280">${actMap[w.activity_id||w.activityId]||'?'}</td>
+        <td style="font-weight:700;color:#E8274B">#${w.prize_rank||i+1}</td>
+        <td style="font-size:12px">${w.prize_name||'-'}</td>
+        <td><strong>${w.member_name}</strong></td>
+        <td><span class="badge ${TEAM_B[w.member_team]||''}">${TEAM_LABEL[w.member_team]||''}</span></td>
+        <td style="font-size:11px;color:#9ca3af">${fmt(w.drawn_at)}</td>
+        <td>${w.prize_delivered?'<span style="color:#16a34a;font-size:12px;font-weight:600">✅ ส่งแล้ว</span>':'<span style="color:#9ca3af;font-size:12px">รอส่ง</span>'}</td>
+      </tr>`).join('');
+  } catch(e) { tbody.innerHTML='<tr><td colspan="7" class="empty">เกิดข้อผิดพลาด</td></tr>'; }
+}
+
 function doDraw() {
+  const n=Math.min(parseInt($('draw-count').value)||1,drawCandidates.length);
   if (!drawCandidates.length) { alert('ไม่มีผู้มีสิทธิ์สุ่ม'); return; }
+  if ((parseInt($('draw-count').value)||1)>drawCandidates.length) {
+    if (!confirm(`ผู้มีสิทธิ์มีแค่ ${drawCandidates.length} คน จะสุ่ม ${drawCandidates.length} คนแทนไหม?`)) return;
+  }
+  const prizes=Array.from({length:n},(_,i)=>{
+    const el=document.getElementById(`prize-name-${i}`);
+    return (el&&el.value.trim())||`รางวัลอันดับ ${i+1}`;
+  });
   $('draw-btn').disabled=true;
   $('draw-winner-area').innerHTML='';
-  const slot=$('draw-slot');
-  let i=0;
-  drawTimer=setInterval(()=>{ slot.textContent=(drawCandidates[i%drawCandidates.length].member_name||drawCandidates[i%drawCandidates.length].memberName||'?'); i++; },80);
-  setTimeout(async()=>{
-    clearInterval(drawTimer);
-    const winner=drawCandidates[Math.floor(Math.random()*drawCandidates.length)];
-    slot.textContent=winner.member_name||winner.memberName||'';
-    $('draw-winner-area').innerHTML=`<div class="draw-winner-card"><div style="font-size:28px">🎉</div><div style="font-size:20px;font-weight:800">${winner.member_name||winner.memberName}</div><div style="font-size:13px;color:#6b7280">${winner.member_gameid||winner.memberGameId} · ${TEAM_LABEL[winner.member_team||winner.memberTeam]||''}</div></div>`;
-    try {
-      const actId=$('draw-act').value, rank=drawWinners.length+1;
-      if (IS_CONFIGURED && db) {
-        await db.from('draw_winners').insert({activity_id:actId,member_id:winner.member_id||winner.memberId,member_name:winner.member_name||winner.memberName,member_gameid:winner.member_gameid||winner.memberGameId,member_team:winner.member_team||winner.memberTeam,prize_rank:rank});
-      } else {
-        const ws=JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]');
-        ws.push({id:'dw_'+Date.now(),activityId:actId,memberId:winner.memberId||winner.member_id,memberName:winner.member_name||winner.memberName,memberGameId:winner.member_gameid||winner.memberGameId,memberTeam:winner.member_team||winner.memberTeam,prize_rank:rank,drawn_at:new Date().toISOString()});
-        localStorage.setItem('pgo_draw_winners',JSON.stringify(ws));
-      }
-      await loadDrawCandidates();
-    } catch(e) { console.error(e); }
-    $('draw-btn').disabled=false;
-  },2800);
+  const actId=$('draw-act').value;
+  const pool=[...drawCandidates];
+
+  function drawOne(idx) {
+    if (idx>=n) { $('draw-btn').disabled=false; loadDrawCandidates(); loadDrawHistory(); return; }
+    const slot=$('draw-slot');
+    let i=0; clearInterval(drawTimer);
+    drawTimer=setInterval(()=>{ slot.textContent=pool[i%pool.length].member_name||pool[i%pool.length].memberName||'?'; i++; },80);
+    setTimeout(async()=>{
+      clearInterval(drawTimer);
+      const wi=Math.floor(Math.random()*pool.length);
+      const winner=pool.splice(wi,1)[0];
+      slot.textContent=winner.member_name||winner.memberName||'';
+      const prizeName=prizes[idx], rank=drawWinners.length+idx+1;
+      $('draw-winner-area').innerHTML+=`
+        <div class="draw-winner-card" style="margin-bottom:8px">
+          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">🎁 ${prizeName} · อันดับ #${rank}</div>
+          <div style="font-size:22px">🎉</div>
+          <div style="font-size:20px;font-weight:800">${winner.member_name||winner.memberName}</div>
+          <div style="font-size:13px;color:#6b7280">${winner.member_gameid||winner.memberGameId||''} · ${TEAM_LABEL[winner.member_team||winner.memberTeam]||''}</div>
+        </div>`;
+      try {
+        if (IS_CONFIGURED && db) {
+          await db.from('draw_winners').insert({activity_id:actId,member_id:winner.member_id||winner.memberId,member_name:winner.member_name||winner.memberName,member_gameid:winner.member_gameid||winner.memberGameId,member_team:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prizeName,prize_delivered:false});
+        } else {
+          const ws=JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]');
+          ws.push({id:'dw_'+Date.now(),activityId:actId,memberId:winner.member_id||winner.memberId,memberName:winner.member_name||winner.memberName,memberGameId:winner.member_gameid||winner.memberGameId,memberTeam:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prizeName,prize_delivered:false,drawn_at:new Date().toISOString()});
+          localStorage.setItem('pgo_draw_winners',JSON.stringify(ws));
+        }
+      } catch(e) { console.error(e); }
+      if (idx<n-1) setTimeout(()=>drawOne(idx+1),1000);
+      else { $('draw-btn').disabled=false; loadDrawCandidates(); loadDrawHistory(); }
+    },2500);
+  }
+  drawOne(0);
 }
 
 // ==================== Team ====================
