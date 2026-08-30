@@ -284,14 +284,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <input class="form-input" id="draw-min-ci" type="number" value="0" min="0" onchange="loadDrawCandidates()">
         </div>
         <div class="form-group" style="grid-column:1/-1">
-          <label class="form-label">จำนวนรางวัล</label>
-          <input class="form-input" id="draw-count" type="number" value="1" min="1" max="20" oninput="updatePrizeInputs()">
-        </div>
-        <div id="prize-names-wrap" style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="form-group" style="grid-column:1/-1">
-            <label class="form-label">รางวัลอันดับ 1</label>
-            <input class="form-input" id="prize-name-0" type="text" placeholder="เช่น Premium Pass x1">
-          </div>
+          <label class="form-label">รายการรางวัล</label>
+          <div id="prize-rows-wrap"></div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addPrizeRow()" style="margin-top:6px">+ เพิ่มรายการรางวัล</button>
+          <div id="prize-total-label" style="font-size:12px;color:#6b7280;margin-top:8px"></div>
         </div>
       </div>
       <div id="draw-eligible" style="font-size:13px;color:#6b7280;margin-top:10px"></div>
@@ -795,19 +791,35 @@ async function loadActivitiesForDraw() {
       acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
     }
     $('draw-act').innerHTML='<option value="">เลือกกิจกรรม</option>'+acts.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+    // Init prize row if none exist
+    if (!$('prize-rows-wrap').children.length) addPrizeRow();
     loadDrawHistory();
   } catch(e) {}
 }
 
-function updatePrizeInputs() {
-  const n=Math.min(parseInt($('draw-count').value)||1,20);
-  const wrap=$('prize-names-wrap');
-  const existing=[...wrap.querySelectorAll('input[id^="prize-name-"]')].map(i=>i.value);
-  wrap.innerHTML=Array.from({length:n},(_,i)=>`
-    <div class="form-group" style="grid-column:${n===1?'1/-1':'auto'}">
-      <label class="form-label">รางวัลอันดับ ${i+1}</label>
-      <input class="form-input" id="prize-name-${i}" type="text" placeholder="เช่น Premium Pass x1" value="${existing[i]||''}">
-    </div>`).join('');
+function addPrizeRow(name='', qty=1) {
+  const wrap=$('prize-rows-wrap');
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  row.innerHTML=`
+    <input class="form-input prize-name" type="text" placeholder="ชื่อรางวัล เช่น Premium Pass" value="${name}" style="flex:1;min-width:0" oninput="updatePrizeTotal()">
+    <input class="form-input prize-qty" type="number" value="${qty}" min="1" max="500" style="width:72px;text-align:center" oninput="updatePrizeTotal()">
+    <span style="font-size:12px;color:#6b7280;white-space:nowrap">คน</span>
+    <button type="button" onclick="this.closest('div').remove();updatePrizeTotal()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:20px;line-height:1;padding:0 2px">×</button>`;
+  wrap.appendChild(row);
+  updatePrizeTotal();
+}
+
+function updatePrizeTotal() {
+  const total=[...document.querySelectorAll('.prize-qty')].reduce((s,i)=>s+(parseInt(i.value)||0),0);
+  $('prize-total-label').textContent=total>0?`รวมทั้งหมด: ${total} รางวัล / ${total} คน`:'';
+}
+
+function getPrizeList() {
+  return [...document.querySelectorAll('#prize-rows-wrap > div')].map(row=>({
+    name: row.querySelector('.prize-name').value.trim()||'รางวัล',
+    qty:  parseInt(row.querySelector('.prize-qty').value)||1
+  })).filter(p=>p.qty>0);
 }
 
 async function loadDrawCandidates() {
@@ -937,15 +949,16 @@ async function loadDrawHistory() {
 }
 
 function doDraw() {
-  const n=Math.min(parseInt($('draw-count').value)||1,drawCandidates.length);
+  const prizeRows=getPrizeList();
+  if (!prizeRows.length) { alert('กรุณาเพิ่มรายการรางวัลก่อน'); return; }
   if (!drawCandidates.length) { alert('ไม่มีผู้มีสิทธิ์สุ่ม'); return; }
-  if ((parseInt($('draw-count').value)||1)>drawCandidates.length) {
-    if (!confirm(`ผู้มีสิทธิ์มีแค่ ${drawCandidates.length} คน จะสุ่ม ${drawCandidates.length} คนแทนไหม?`)) return;
+  // Build flat prize list: [{name, tierLabel}]
+  const prizes=[];
+  prizeRows.forEach((row,ti)=>{ for(let i=0;i<row.qty;i++) prizes.push(row.name); });
+  const n=Math.min(prizes.length, drawCandidates.length);
+  if (prizes.length>drawCandidates.length) {
+    if (!confirm(`ผู้มีสิทธิ์มีแค่ ${drawCandidates.length} คน แต่ตั้งรางวัลไว้ ${prizes.length} รางวัล\nจะสุ่มเท่าที่มี (${drawCandidates.length} คน) ไหม?`)) return;
   }
-  const prizes=Array.from({length:n},(_,i)=>{
-    const el=document.getElementById(`prize-name-${i}`);
-    return (el&&el.value.trim())||`รางวัลอันดับ ${i+1}`;
-  });
   $('draw-btn').disabled=true;
   $('draw-winner-area').innerHTML='';
   const actId=$('draw-act').value;
