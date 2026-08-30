@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>PGO Saraburi — กิจกรรม</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0f0;min-height:100vh;display:flex;justify-content:center}
+.app{width:100%;max-width:430px;min-height:100vh;background:#fff;display:flex;flex-direction:column;position:relative}
+.screen{display:none;flex-direction:column;flex:1;min-height:100vh}
+.screen.active{display:flex}
+
+/* Loading overlay */
+.loading-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:12px}
+.loading-overlay.hidden{display:none}
+.spin{width:36px;height:36px;border:3px solid #f0f0f0;border-top-color:#E8274B;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Splash */
+#splash{background:#E8274B;align-items:center;justify-content:center;color:#fff}
+.ball-wrap{width:90px;height:90px;border-radius:50%;border:4px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;animation:spin 2s linear infinite;margin-bottom:20px}
+.ball-inner{width:68px;height:68px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:38px}
+#splash h1{font-size:24px;font-weight:700;color:#fff;margin-bottom:6px}
+#splash p{font-size:14px;opacity:0.85}
+
+/* Topbar */
+.topbar{background:#E8274B;padding:14px 16px;color:#fff;flex-shrink:0}
+.topbar h1{font-size:17px;font-weight:700;color:#fff;margin-bottom:2px}
+.topbar p{font-size:12px;opacity:0.82;margin:0}
+
+/* Content */
+.content{flex:1;overflow-y:auto;padding:16px;padding-bottom:24px}
+
+/* Forms */
+.form-group{margin-bottom:14px}
+.form-label{font-size:12px;color:#6b7280;display:block;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+.form-input{width:100%;padding:11px 13px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:15px;color:#111;background:#fff;outline:none;transition:border-color 0.2s;-webkit-appearance:none}
+.form-input:focus{border-color:#E8274B}
+
+/* Team selector */
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.team-opt{border:2px solid #e5e7eb;border-radius:12px;padding:12px 6px;text-align:center;cursor:pointer;transition:all 0.15s;user-select:none}
+.team-opt .t-icon{font-size:26px;display:block;margin-bottom:5px}
+.team-opt .t-name{font-size:11px;font-weight:700}
+.team-opt.mystic .t-name{color:#2563eb}
+.team-opt.valor  .t-name{color:#dc2626}
+.team-opt.instinct .t-name{color:#ca8a04}
+.team-opt.selected.mystic{border-color:#3b82f6;background:#eff6ff}
+.team-opt.selected.valor{border-color:#ef4444;background:#fef2f2}
+.team-opt.selected.instinct{border-color:#eab308;background:#fefce8}
+
+/* Buttons */
+.btn{width:100%;padding:13px;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn:active{transform:scale(0.975)}
+.btn-primary{background:#E8274B;color:#fff}
+.btn-primary:disabled{background:#f9a8b8;cursor:not-allowed;transform:none}
+.btn-secondary{background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;font-weight:600}
+.mt-8{margin-top:8px}
+
+/* Cards */
+.card{background:#fff;border:1.5px solid #f0f0f0;border-radius:14px;padding:14px;margin-bottom:10px}
+.card-activity{border-color:#fecdd3;background:#fffafa}
+
+/* User badge */
+.user-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0}
+.av-mystic{background:#dbeafe;color:#1d4ed8}
+.av-valor{background:#fee2e2;color:#dc2626}
+.av-instinct{background:#fef9c3;color:#ca8a04}
+
+/* Points */
+.pts-row{display:flex;gap:8px}
+.pts-box{flex:1;background:#f9fafb;border-radius:10px;padding:9px 6px;text-align:center;border:1px solid #f0f0f0}
+.pts-num{font-size:20px;font-weight:800;color:#111}
+.pts-label{font-size:10px;color:#9ca3af;margin-top:1px;font-weight:600}
+
+/* GPS */
+.gps-wrap{text-align:center;padding:20px 16px 16px}
+.gps-ring{width:100px;height:100px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;border:3px solid;transition:all 0.4s}
+.gps-ring.checking{border-color:#93c5fd;background:#eff6ff;animation:glow 1.4s ease-in-out infinite}
+.gps-ring.ok{border-color:#86efac;background:#f0fdf4}
+.gps-ring.fail{border-color:#fca5a5;background:#fef2f2}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:0.65}}
+.gps-icon{font-size:42px}
+.gps-title{font-size:16px;font-weight:700;color:#111;margin-bottom:5px}
+.gps-detail{font-size:13px;color:#6b7280;margin-bottom:16px}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-ok{background:#dcfce7;color:#15803d}
+.badge-warn{background:#fef9c3;color:#854d0e}
+.badge-red{background:#fee2e2;color:#dc2626}
+.badge-blue{background:#dbeafe;color:#1d4ed8}
+.badge-live{background:#E8274B;color:#fff}
+
+/* Error */
+.err-box{background:#fef2f2;border:1px solid #fecdd3;color:#dc2626;padding:10px 13px;border-radius:9px;font-size:13px;margin-bottom:12px}
+
+/* Success */
+.success-wrap{align-items:center;justify-content:center;padding:28px 20px;text-align:center;flex:1}
+.success-icon-big{width:84px;height:84px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:44px;margin:0 auto 16px}
+.distance-info{background:#f0fdf4;border-radius:9px;padding:9px 12px;font-size:12px;color:#15803d;font-weight:600;margin-top:10px}
+
+/* Empty state */
+.empty-state{text-align:center;padding:36px 20px;color:#9ca3af}
+.empty-icon{font-size:52px;margin-bottom:10px}
+
+/* Footer */
+.foot{text-align:center;padding:14px;font-size:12px;color:#9ca3af;border-top:1px solid #f0f0f0;margin-top:auto}
+.foot a{color:#E8274B;text-decoration:none;font-weight:600}
+.sec-label{font-size:13px;font-weight:700;color:#111;margin-bottom:9px}
+
+/* Config warning */
+.config-warn{background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#854d0e;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="loading-overlay hidden" id="global-loader">
+  <div class="spin"></div>
+  <div style="font-size:13px;color:#6b7280" id="loader-text">กำลังโหลด...</div>
+</div>
+
+<!-- SPLASH -->
+<div class="screen active" id="splash">
+  <div class="ball-wrap"><div class="ball-inner">⚽</div></div>
+  <h1>PGO Saraburi</h1>
+  <p>ระบบจัดการกิจกรรม</p>
+</div>
+
+<!-- REGISTER -->
+<div class="screen" id="register">
+  <div class="topbar">
+    <h1>🎮 ลงทะเบียนสมาชิก</h1>
+    <p>กรอกครั้งเดียว ใช้ได้ทุกกิจกรรม</p>
+  </div>
+  <div class="content">
+    <div class="err-box" id="reg-err" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">ชื่อ / ชื่อเล่น</label>
+      <input class="form-input" id="reg-name" type="text" placeholder="เช่น สุรชัย หรือ บอส" maxlength="30" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Trainer Name (ชื่อในเกม)</label>
+      <input class="form-input" id="reg-gameid" type="text" placeholder="เช่น TrainerBoss99" maxlength="20" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">เบอร์โทร (ไม่บังคับ)</label>
+      <input class="form-input" id="reg-phone" type="tel" placeholder="08X-XXX-XXXX" maxlength="15">
+    </div>
+    <div class="form-group">
+      <label class="form-label">สีทีม</label>
+      <div class="team-grid">
+        <div class="team-opt mystic"   onclick="pickTeam('mystic',this)"><span class="t-icon">💙</span><span class="t-name">Mystic</span></div>
+        <div class="team-opt valor"    onclick="pickTeam('valor',this)"><span class="t-icon">❤️</span><span class="t-name">Valor</span></div>
+        <div class="team-opt instinct" onclick="pickTeam('instinct',this)"><span class="t-icon">💛</span><span class="t-name">Instinct</span></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="reg-btn" onclick="doRegister()">✅ ลงทะเบียน</button>
+    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px;line-height:1.5">ข้อมูลจะถูกผูกกับอุปกรณ์นี้<br>เพื่อป้องกันการกรอกข้อมูลแทนกัน</p>
+  </div>
+  <div class="foot"><a href="admin.html">🔐 Admin Panel</a></div>
+</div>
+
+<!-- HOME -->
+<div class="screen" id="home">
+  <div class="topbar">
+    <h1>🎮 PGO Saraburi</h1>
+    <p id="home-sub">กิจกรรมวันนี้</p>
+  </div>
+  <div class="content">
+    <div class="card" id="home-card">
+      <div class="user-row">
+        <div class="avatar" id="home-av"></div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;color:#111" id="home-name"></div>
+          <div style="font-size:12px;color:#6b7280;margin:2px 0" id="home-gameid"></div>
+          <span class="badge" id="home-team-badge"></span>
+        </div>
+        <button onclick="goScreen('register')" style="background:none;border:none;font-size:11px;color:#9ca3af;cursor:pointer">แก้ไข</button>
+      </div>
+      <div class="pts-row">
+        <div class="pts-box"><div class="pts-num" id="home-events">0</div><div class="pts-label">กิจกรรม</div></div>
+        <div class="pts-box"><div class="pts-num" style="color:#E8274B" id="home-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
+        <div class="pts-box"><div class="pts-num" id="home-rank">#-</div><div class="pts-label">อันดับ</div></div>
+      </div>
+    </div>
+    <div class="sec-label">กิจกรรมที่เปิดอยู่</div>
+    <div id="activity-list"></div>
+  </div>
+  <div class="foot">
+    <a href="admin.html">🔐 Admin</a> &nbsp;·&nbsp;
+    <a href="#" onclick="changeDevice()">เปลี่ยนอุปกรณ์</a>
+  </div>
+</div>
+
+<!-- CHECKIN -->
+<div class="screen" id="checkin">
+  <div class="topbar">
+    <h1 id="ci-title">📍 เช็คอิน</h1>
+    <p id="ci-sub">ตรวจสอบตำแหน่ง GPS</p>
+  </div>
+  <div class="content">
+    <div class="gps-wrap">
+      <div class="gps-ring checking" id="gps-ring"><span class="gps-icon" id="gps-icon">📍</span></div>
+      <div class="gps-title" id="gps-title">กำลังตรวจสอบตำแหน่ง...</div>
+      <div class="gps-detail" id="gps-detail">โปรดอนุญาตการเข้าถึงตำแหน่ง GPS</div>
+      <span class="badge" id="gps-dist-badge" style="display:none"></span>
+    </div>
+    <div class="err-box" id="ci-err" style="display:none"></div>
+    <button class="btn btn-primary" id="ci-btn" onclick="doCheckin()" disabled>📍 เช็คอินเข้าร่วมกิจกรรม</button>
+    <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
+    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">1 อุปกรณ์ = 1 การเช็คอิน ต่อกิจกรรม</p>
+  </div>
+</div>
+
+<!-- SUCCESS -->
+<div class="screen" id="success">
+  <div class="content success-wrap">
+    <div class="success-icon-big">✅</div>
+    <div style="font-size:23px;font-weight:800;margin-bottom:4px;color:#111">เช็คอินสำเร็จ!</div>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:20px" id="succ-time"></div>
+    <div class="card" style="width:100%;text-align:left">
+      <div class="user-row" style="margin-bottom:10px">
+        <div class="avatar" id="succ-av"></div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700" id="succ-name"></div>
+          <div style="font-size:12px;color:#6b7280" id="succ-gameid"></div>
+        </div>
+        <span class="badge" id="succ-team"></span>
+      </div>
+      <div class="pts-row" style="margin-bottom:10px">
+        <div class="pts-box"><div class="pts-num" id="succ-events">0</div><div class="pts-label">กิจกรรม</div></div>
+        <div class="pts-box"><div class="pts-num" style="color:#E8274B" id="succ-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
+      </div>
+      <div class="distance-info" id="succ-dist"></div>
+    </div>
+    <div style="font-size:13px;color:#6b7280;margin:12px 0" id="succ-actname"></div>
+    <button class="btn btn-primary" onclick="goScreen('home')">🏠 กลับหน้าหลัก</button>
+  </div>
+</div>
+
+</div><!-- .app -->
+<script>
+// =====================================================
+// SUPABASE CONFIG — แก้ไข 2 บรรทัดนี้
+// หาค่าได้ที่: Supabase Dashboard → Settings → API
+// =====================================================
+const SUPABASE_URL      = 'https://mywgmpeirhuzeglzofso.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable__g2KWcUU1hOY8hpvE3EupQ_81szTRiy';
+// =====================================================
+
+const IS_CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT');
+
+let db = null;
+if (IS_CONFIGURED) {
+  const { createClient } = window.supabase;
+  db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// ===== Helpers =====
+const TEAM_LABEL = { mystic:'💙 Mystic', valor:'❤️ Valor', instinct:'💛 Instinct' };
+const TEAM_BADGE = { mystic:'badge-blue', valor:'badge-red', instinct:'badge-warn' };
+const TEAM_AV    = { mystic:'av-mystic', valor:'av-valor', instinct:'av-instinct' };
+const TYPE_ICON  = { draw:'🎁', points:'⭐', pvp:'⚔️', checkin:'📍' };
+
+function lsGet(k)    { try { return JSON.parse(localStorage.getItem('pgo_'+k)); } catch(e) { return null; } }
+function lsSet(k, v) { localStorage.setItem('pgo_'+k, JSON.stringify(v)); }
+function lsDel(k)    { localStorage.removeItem('pgo_'+k); }
+
+function showLoader(text) {
+  document.getElementById('global-loader').classList.remove('hidden');
+  document.getElementById('loader-text').textContent = text || 'กำลังโหลด...';
+}
+function hideLoader() { document.getElementById('global-loader').classList.add('hidden'); }
+
+function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+
+// ===== Device Fingerprint =====
+function getFingerprint() {
+  const parts = [navigator.userAgent, screen.width+'x'+screen.height+'x'+screen.colorDepth,
+    Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language,
+    navigator.hardwareConcurrency||0, navigator.maxTouchPoints||0].join('|');
+  let h = 2166136261;
+  for (let i = 0; i < parts.length; i++) { h ^= parts.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return 'fp_' + (h >>> 0).toString(36);
+}
+
+// ===== Geo =====
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000, toRad = x => x*Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+}
+
+// ===== State =====
+let selectedTeam = '';
+let activeActivity = null;
+let gpsResult = null;
+let currentMember = null;
+
+// ===== Navigation =====
+function goScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ===== Register =====
+function pickTeam(team, el) {
+  selectedTeam = team;
+  document.querySelectorAll('.team-opt').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function doRegister() {
+  const name   = document.getElementById('reg-name').value.trim();
+  const gameid = document.getElementById('reg-gameid').value.trim();
+  const phone  = document.getElementById('reg-phone').value.trim();
+  const errEl  = document.getElementById('reg-err');
+  errEl.style.display = 'none';
+
+  if (!name)         { showErr(errEl,'กรุณากรอกชื่อ / ชื่อเล่น'); return; }
+  if (!gameid)       { showErr(errEl,'กรุณากรอก Trainer Name'); return; }
+  if (gameid.length < 3) { showErr(errEl,'Trainer Name ต้องมีอย่างน้อย 3 ตัวอักษร'); return; }
+  if (!selectedTeam) { showErr(errEl,'กรุณาเลือกสีทีม'); return; }
+
+  const fp = getFingerprint();
+  document.getElementById('reg-btn').disabled = true;
+  showLoader('กำลังลงทะเบียน...');
+
+  try {
+    if (IS_CONFIGURED && db) {
+      // Check gameid taken by different device
+      const { data: existing } = await db.from('members').select('fp').eq('gameid', gameid).maybeSingle();
+      if (existing && existing.fp !== fp) {
+        showErr(errEl,'⚠️ Trainer Name นี้ถูกลงทะเบียนจากอุปกรณ์อื่นแล้ว');
+        return;
+      }
+      // Upsert member
+      const { data, error } = await db.from('members')
+        .upsert({ name, gameid, phone, team: selectedTeam, fp, updated_at: new Date().toISOString() }, { onConflict: 'fp' })
+        .select().single();
+      if (error) throw error;
+      currentMember = data;
+      lsSet('member_fp', fp);
+    } else {
+      // Fallback localStorage
+      const members = lsGet('members') || [];
+      const same = members.find(m => m.gameid.toLowerCase()===gameid.toLowerCase() && m.fp!==fp);
+      if (same) { showErr(errEl,'⚠️ Trainer Name นี้ถูกลงทะเบียนจากอุปกรณ์อื่นแล้ว'); return; }
+      const idx = members.findIndex(m => m.fp===fp);
+      const member = idx>=0 ? Object.assign(members[idx],{name,gameid,phone,team:selectedTeam}) : {id:'m_'+Date.now(),name,gameid,phone,team:selectedTeam,fp,events:0,points:0,registered_at:new Date().toISOString()};
+      if (idx<0) members.push(member); else members[idx]=member;
+      lsSet('members', members);
+      currentMember = member;
+      lsSet('member_fp', fp);
+    }
+    await renderHome();
+    goScreen('home');
+  } catch(e) {
+    showErr(errEl, 'เกิดข้อผิดพลาด: ' + e.message);
+  } finally {
+    hideLoader();
+    document.getElementById('reg-btn').disabled = false;
+  }
+}
+
+// ===== Home =====
+async function renderHome() {
+  const fp = getFingerprint();
+  let member = null;
+
+  showLoader('กำลังโหลด...');
+  try {
+    if (IS_CONFIGURED && db) {
+      const { data } = await db.from('members').select('*').eq('fp', fp).maybeSingle();
+      member = data;
+      if (!member) { goScreen('register'); return; }
+      // Get rank
+      const { count } = await db.from('members').select('*', {count:'exact'}).gt('points', member.points||0);
+      member._rank = (count||0) + 1;
+    } else {
+      const members = lsGet('members') || [];
+      member = members.find(m => m.fp===fp);
+      if (!member) { goScreen('register'); return; }
+      const sorted = [...members].sort((a,b)=>(b.points||0)-(a.points||0));
+      member._rank = sorted.findIndex(m=>m.fp===fp) + 1;
+    }
+  } catch(e) { console.error(e); }
+  finally { hideLoader(); }
+
+  if (!member) return;
+  currentMember = member;
+
+  const initials = member.name.slice(0,2).toUpperCase();
+  document.getElementById('home-av').textContent = initials;
+  document.getElementById('home-av').className = 'avatar ' + (TEAM_AV[member.team]||'av-mystic');
+  document.getElementById('home-name').textContent = member.name;
+  document.getElementById('home-gameid').textContent = member.gameid;
+  const tb = document.getElementById('home-team-badge');
+  tb.textContent = TEAM_LABEL[member.team]||'';
+  tb.className = 'badge ' + (TEAM_BADGE[member.team]||'badge-blue');
+  document.getElementById('home-events').textContent = member.events||0;
+  document.getElementById('home-pts').textContent = member.points||0;
+  document.getElementById('home-rank').textContent = member._rank ? '#'+member._rank : '#-';
+
+  // Pre-fill register form for editing
+  document.getElementById('reg-name').value = member.name;
+  document.getElementById('reg-gameid').value = member.gameid;
+  document.getElementById('reg-phone').value = member.phone||'';
+  pickTeam(member.team, document.querySelector('.team-opt.'+member.team));
+
+  await renderActivityList(member);
+}
+
+async function renderActivityList(member) {
+  let activities = [], checkins = [];
+  try {
+    if (IS_CONFIGURED && db) {
+      const { data: acts } = await db.from('activities').select('*').eq('is_open', true).order('created_at', {ascending:false});
+      activities = acts || [];
+      if (member && activities.length > 0) {
+        const actIds = activities.map(a=>a.id);
+        const { data: cis } = await db.from('checkins').select('activity_id,timestamp').eq('fp', member.fp).in('activity_id', actIds);
+        checkins = cis || [];
+      }
+    } else {
+      activities = (lsGet('activities')||[]).filter(a=>a.isOpen||a.is_open);
+      const fp = getFingerprint();
+      checkins = (lsGet('checkins')||[]).filter(c => activities.some(a=>a.id===c.activityId) && c.memberId===fp);
+    }
+  } catch(e) { console.error(e); }
+
+  const el = document.getElementById('activity-list');
+  if (activities.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">😴</div><p style="font-weight:600;color:#6b7280">ยังไม่มีกิจกรรมที่เปิดอยู่</p><p style="font-size:12px;margin-top:4px;color:#9ca3af">ติดตามผ่าน LINE OpenChat ของกลุ่ม</p></div>`;
+    return;
+  }
+
+  el.innerHTML = activities.map(act => {
+    const myCI = checkins.find(c => c.activity_id===act.id || c.activityId===act.id);
+    const icon = TYPE_ICON[act.type]||'🎮';
+    const demoNote = (act.radius>=10000) ? ' <span style="font-size:10px;color:#9ca3af">(Demo)</span>' : '';
+    return `<div class="card card-activity">
+  <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+    <div style="font-size:30px;flex-shrink:0">${icon}</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14px;font-weight:700;color:#111">${act.name}</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:2px">⏰ ${act.time_label||act.timeLabel||'วันนี้'}</div>
+      <div style="font-size:11px;color:#6b7280">📍 รัศมี ${(act.radius||100).toLocaleString()}m${demoNote} · ⭐ ${act.pts_per_checkin||act.ptsPerCheckin||20} pt</div>
+    </div>
+    <span class="badge badge-live" style="flex-shrink:0;font-size:10px">Live</span>
+  </div>
+  ${myCI
+    ? `<div style="background:#dcfce7;border-radius:9px;padding:9px 12px;font-size:13px;color:#15803d;font-weight:600;text-align:center">✅ เช็คอินแล้ว เวลา ${new Date(myCI.timestamp).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น.</div>`
+    : `<button class="btn btn-primary" onclick="startCheckin('${act.id}')">📍 เช็คอินเข้าร่วม</button>`
+  }
+</div>`;
+  }).join('');
+}
+
+// ===== Check-in =====
+async function startCheckin(actId) {
+  let acts = [];
+  try {
+    if (IS_CONFIGURED && db) {
+      const { data } = await db.from('activities').select('*').eq('id', actId).single();
+      acts = data ? [data] : [];
+    } else {
+      acts = lsGet('activities')||[];
+    }
+  } catch(e) {}
+
+  activeActivity = (IS_CONFIGURED ? acts[0] : acts.find(a=>a.id===actId));
+  if (!activeActivity) return;
+
+  document.getElementById('ci-title').textContent = '📍 ' + activeActivity.name;
+  document.getElementById('ci-sub').textContent = 'ตรวจสอบตำแหน่ง GPS';
+  document.getElementById('ci-btn').disabled = true;
+  document.getElementById('ci-err').style.display = 'none';
+  document.getElementById('gps-dist-badge').style.display = 'none';
+  gpsResult = null;
+
+  setGPSUI('checking','📍','กำลังตรวจสอบตำแหน่ง...','โปรดอนุญาตการเข้าถึง GPS');
+  goScreen('checkin');
+
+  if (!navigator.geolocation) { setGPSUI('fail','📵','ไม่รองรับ GPS','เบราว์เซอร์นี้ไม่รองรับ Geolocation'); return; }
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const radius = activeActivity.radius || activeActivity.radius;
+    const dist = haversine(pos.coords.latitude, pos.coords.longitude, activeActivity.lat, activeActivity.lng);
+    gpsResult = { lat: pos.coords.latitude, lng: pos.coords.longitude, dist, acc: Math.round(pos.coords.accuracy) };
+
+    const db2 = document.getElementById('gps-dist-badge');
+    db2.style.display = 'inline-flex';
+    db2.textContent = 'ระยะ: ' + dist.toLocaleString() + ' เมตร';
+
+    if (dist <= radius) {
+      db2.className = 'badge badge-ok';
+      setGPSUI('ok','✅','อยู่ในพื้นที่ ✓','ห่าง '+dist.toLocaleString()+' เมตร จากจุดกิจกรรม');
+      document.getElementById('ci-btn').disabled = false;
+    } else {
+      db2.className = 'badge badge-red';
+      setGPSUI('fail','❌','อยู่นอกพื้นที่','คุณอยู่ห่าง '+dist.toLocaleString()+'m — ต้องอยู่ภายใน '+radius.toLocaleString()+'m');
+    }
+  }, err => {
+    const msgs = {1:'กรุณาอนุญาต GPS ในเบราว์เซอร์',2:'ระบุตำแหน่งไม่ได้',3:'หมดเวลารับสัญญาณ'};
+    setGPSUI('fail','📵','รับ GPS ไม่ได้', msgs[err.code]||'เกิดข้อผิดพลาด');
+  }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
+}
+
+function setGPSUI(type, icon, title, detail) {
+  document.getElementById('gps-ring').className = 'gps-ring ' + type;
+  document.getElementById('gps-icon').textContent = icon;
+  document.getElementById('gps-title').textContent = title;
+  document.getElementById('gps-detail').textContent = detail;
+}
+
+async function doCheckin() {
+  if (!activeActivity || !gpsResult) return;
+  const fp = getFingerprint();
+  const errEl = document.getElementById('ci-err');
+  errEl.style.display = 'none';
+  document.getElementById('ci-btn').disabled = true;
+  showLoader('กำลังบันทึกการเช็คอิน...');
+
+  try {
+    let member = currentMember;
+    if (!member) {
+      if (IS_CONFIGURED && db) {
+        const { data } = await db.from('members').select('*').eq('fp', fp).maybeSingle();
+        member = data;
+      } else {
+        member = (lsGet('members')||[]).find(m=>m.fp===fp);
+      }
+      if (!member) { goScreen('register'); return; }
+    }
+
+    const pts = activeActivity.pts_per_checkin || activeActivity.ptsPerCheckin || 20;
+
+    if (IS_CONFIGURED && db) {
+      // Check duplicate
+      const { data: dup } = await db.from('checkins').select('id').eq('fp', fp).eq('activity_id', activeActivity.id).maybeSingle();
+      if (dup) { showErr(errEl,'คุณเช็คอินกิจกรรมนี้ไปแล้ว'); return; }
+
+      // Insert checkin
+      const { error: ciErr } = await db.from('checkins').insert({
+        member_id: member.id, activity_id: activeActivity.id,
+        member_name: member.name, member_gameid: member.gameid, member_team: member.team,
+        activity_name: activeActivity.name,
+        distance: gpsResult.dist, accuracy: gpsResult.acc, fp
+      });
+      if (ciErr) throw ciErr;
+
+      // Update stats
+      await db.from('members').update({ events: (member.events||0)+1, points: (member.points||0)+pts, updated_at: new Date().toISOString() }).eq('fp', fp);
+      member = { ...member, events:(member.events||0)+1, points:(member.points||0)+pts };
+    } else {
+      const checkins = lsGet('checkins')||[];
+      if (checkins.find(c=>c.activityId===activeActivity.id&&c.memberId===fp)) { showErr(errEl,'คุณเช็คอินแล้ว'); return; }
+      checkins.push({ id:'ci_'+Date.now(), memberId:fp, memberName:member.name, memberGameId:member.gameid, memberTeam:member.team, activityId:activeActivity.id, activityName:activeActivity.name, distance:gpsResult.dist, accuracy:gpsResult.acc, fp, timestamp:new Date().toISOString() });
+      lsSet('checkins', checkins);
+      const members = lsGet('members')||[];
+      const idx = members.findIndex(m=>m.fp===fp);
+      if (idx>=0) { members[idx].events=(members[idx].events||0)+1; members[idx].points=(members[idx].points||0)+pts; lsSet('members',members); member=members[idx]; }
+    }
+
+    currentMember = member;
+    // Show success
+    document.getElementById('succ-av').textContent = member.name.slice(0,2).toUpperCase();
+    document.getElementById('succ-av').className = 'avatar '+(TEAM_AV[member.team]||'av-mystic');
+    document.getElementById('succ-name').textContent = member.name;
+    document.getElementById('succ-gameid').textContent = member.gameid;
+    const st = document.getElementById('succ-team');
+    st.textContent = TEAM_LABEL[member.team]||''; st.className='badge '+(TEAM_BADGE[member.team]||'badge-blue');
+    document.getElementById('succ-events').textContent = member.events||1;
+    document.getElementById('succ-pts').textContent = member.points||pts;
+    document.getElementById('succ-time').textContent = new Date().toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'long'})+' น.';
+    document.getElementById('succ-dist').textContent = '✓ ยืนยันตำแหน่งแล้ว · ระยะ '+gpsResult.dist.toLocaleString()+' เมตร';
+    document.getElementById('succ-actname').textContent = '📍 '+activeActivity.name;
+    goScreen('success');
+  } catch(e) {
+    if (e.code==='23505'||e.message?.includes('unique')) showErr(errEl,'คุณเช็คอินกิจกรรมนี้ไปแล้ว');
+    else showErr(errEl,'เกิดข้อผิดพลาด: '+e.message);
+    document.getElementById('ci-btn').disabled = false;
+  } finally { hideLoader(); }
+}
+
+function changeDevice() {
+  if (confirm('ออกจากระบบในอุปกรณ์นี้?')) { lsDel('member_fp'); currentMember=null; goScreen('register'); }
+}
+
+// ===== Init =====
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  const actId  = params.get('activity');
+  setTimeout(async () => {
+    const fp = getFingerprint();
+    let hasMember = false;
+    if (IS_CONFIGURED && db) {
+      try {
+        const { data } = await db.from('members').select('id').eq('fp', fp).maybeSingle();
+        hasMember = !!data;
+      } catch(e) {}
+    } else {
+      hasMember = !!(lsGet('members')||[]).find(m=>m.fp===fp);
+    }
+    if (hasMember) {
+      await renderHome();
+      if (actId) startCheckin(actId);
+      else goScreen('home');
+    } else {
+      goScreen('register');
+    }
+  }, 1200);
+});
+</script>
+</body>
+</html>
