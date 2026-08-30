@@ -221,7 +221,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div class="foot">
     <a href="admin.html">🔐 Admin</a> &nbsp;·&nbsp;
-    <a href="#" onclick="changeDevice()">เปลี่ยนอุปกรณ์</a>
+    <a href="#" onclick="doLogout()">ออกจากระบบ</a>
   </div>
 </div>
 
@@ -376,6 +376,7 @@ async function doRegister() {
       if (error) throw error;
       currentMember = data;
       lsSet('member_fp', fp);
+      localStorage.removeItem('pgo_logged_out');
     } else {
       // Fallback localStorage
       const members = lsGet('members') || [];
@@ -433,6 +434,7 @@ async function doLogin() {
       currentMember = member;
       lsSet('member_fp', fp);
     }
+    localStorage.removeItem('pgo_logged_out');
     document.getElementById('login-gameid').value='';
     document.getElementById('login-phone').value='';
     await renderHome();
@@ -502,7 +504,7 @@ async function renderActivityList(member) {
       if (member && activities.length > 0) {
         const actIds = activities.map(a=>a.id);
         const [{ data: cis }, { data: dws }] = await Promise.all([
-          db.from('checkins').select('activity_id,timestamp').eq('fp', member.fp).in('activity_id', actIds),
+          db.from('checkins').select('activity_id,timestamp').eq('member_id', member.id).in('activity_id', actIds),
           db.from('draw_winners').select('activity_id,member_name,prize_rank,prize_name').in('activity_id', actIds).order('prize_rank')
         ]);
         checkins = cis || [];
@@ -649,8 +651,8 @@ async function doCheckin() {
     const pts = activeActivity.pts_per_checkin || activeActivity.ptsPerCheckin || 20;
 
     if (IS_CONFIGURED && db) {
-      // Check duplicate
-      const { data: dup } = await db.from('checkins').select('id').eq('fp', fp).eq('activity_id', activeActivity.id).maybeSingle();
+      // Check duplicate by member_id (stable across device changes)
+      const { data: dup } = await db.from('checkins').select('id').eq('member_id', member.id).eq('activity_id', activeActivity.id).maybeSingle();
       if (dup) { showErr(errEl,'คุณเช็คอินกิจกรรมนี้ไปแล้ว'); return; }
 
       // Insert checkin
@@ -663,7 +665,7 @@ async function doCheckin() {
       if (ciErr) throw ciErr;
 
       // Update stats
-      await db.from('members').update({ events: (member.events||0)+1, points: (member.points||0)+pts, updated_at: new Date().toISOString() }).eq('fp', fp);
+      await db.from('members').update({ events: (member.events||0)+1, points: (member.points||0)+pts, updated_at: new Date().toISOString() }).eq('id', member.id);
       member = { ...member, events:(member.events||0)+1, points:(member.points||0)+pts };
     } else {
       const checkins = lsGet('checkins')||[];
@@ -700,6 +702,13 @@ function changeDevice() {
   if (confirm('ออกจากระบบในอุปกรณ์นี้?')) { lsDel('member_fp'); currentMember=null; goScreen('register'); }
 }
 
+function doLogout() {
+  if (!confirm('ออกจากระบบ?\n(ข้อมูลและแต้มสะสมจะยังคงอยู่)')) return;
+  localStorage.setItem('pgo_logged_out','1');
+  currentMember = null;
+  goScreen('register');
+}
+
 // ===== Init =====
 window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(location.search);
@@ -715,7 +724,8 @@ window.addEventListener('DOMContentLoaded', () => {
     } else {
       hasMember = !!(lsGet('members')||[]).find(m=>m.fp===fp);
     }
-    if (hasMember) {
+    const loggedOut = localStorage.getItem('pgo_logged_out')==='1';
+    if (hasMember && !loggedOut) {
       await renderHome();
       if (actId) startCheckin(actId);
       else goScreen('home');
