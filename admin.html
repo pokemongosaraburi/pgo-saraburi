@@ -244,7 +244,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
       </div>
       <button class="btn btn-secondary btn-sm" style="margin-bottom:10px;width:auto" onclick="useMyGPS()">📍 ใช้ GPS ของฉัน</button>
-      <button class="btn btn-primary" id="act-create-btn" onclick="createActivity()">✅ สร้างกิจกรรม</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="act-create-btn" onclick="createActivity()">✅ สร้างกิจกรรม</button>
+        <button class="btn btn-secondary" id="act-cancel-btn" onclick="cancelEdit()" style="display:none">✕ ยกเลิก</button>
+      </div>
     </div>
     <div class="card">
       <h2>รายการกิจกรรม</h2>
@@ -541,6 +544,7 @@ async function loadActivities() {
         ${currentRole!=='staff'?`
         <div class="flex-row" style="margin-top:10px">
           <button class="btn btn-sm ${(a.is_open||a.isOpen)?'btn-danger':'btn-green'}" onclick="toggleActivity('${a.id}',${!!(a.is_open||a.isOpen)})">${(a.is_open||a.isOpen)?'🔒 ปิดกิจกรรม':'🔓 เปิดกิจกรรม'}</button>
+          <button class="btn btn-secondary btn-sm" onclick="editActivity(${JSON.stringify(a).replace(/"/g,'&quot;')})">✏️ แก้ไข</button>
           <button class="btn btn-secondary btn-sm" onclick="copyCheckinLink('${a.id}')">🔗 คัดลอกลิงก์</button>
           ${currentRole==='superadmin'?`<button class="btn btn-danger btn-sm" onclick="deleteActivity('${a.id}')">🗑 ลบ</button>`:''}
         </div>`:''}
@@ -562,30 +566,48 @@ async function createActivity() {
   $('act-create-btn').disabled=true;
   try {
     if (IS_CONFIGURED && db) {
-      // Upload image if selected
-      let image_url='';
+      // Upload image if a NEW file was selected
+      let image_url = $('img-preview').src.startsWith('http') && !$('act-image').files[0]
+                      ? $('img-preview').src   // keep existing URL
+                      : '';
       const imgFile=$('act-image').files[0];
       if (imgFile) {
         if (imgFile.size>2*1024*1024) { showErr('act-err','รูปภาพต้องไม่เกิน 2MB'); $('act-create-btn').disabled=false; return; }
         const ext=imgFile.name.split('.').pop();
         const path=`activity_${Date.now()}.${ext}`;
-        const {data:upData,error:upErr}=await db.storage.from('activity-images').upload(path,imgFile,{contentType:imgFile.type,upsert:false});
+        const {error:upErr}=await db.storage.from('activity-images').upload(path,imgFile,{contentType:imgFile.type,upsert:false});
         if (upErr) throw upErr;
         const {data:{publicUrl}}=db.storage.from('activity-images').getPublicUrl(path);
         image_url=publicUrl;
       }
-      const {error}=await db.from('activities').insert({name,type,lat,lng,radius,pts_per_checkin:pts,time_label:time,is_open:true,image_url});
-      if (error) throw error;
+      // If image was cleared by user (no preview), reset to empty
+      if ($('img-preview-wrap').style.display==='none') image_url='';
+
+      if (_editingId) {
+        // EDIT MODE
+        const {error}=await db.from('activities').update({name,type,lat,lng,radius,pts_per_checkin:pts,time_label:time,image_url}).eq('id',_editingId);
+        if (error) throw error;
+        alert('✅ บันทึกการแก้ไขสำเร็จ');
+      } else {
+        // CREATE MODE
+        const {error}=await db.from('activities').insert({name,type,lat,lng,radius,pts_per_checkin:pts,time_label:time,is_open:true,image_url});
+        if (error) throw error;
+        alert('✅ สร้างกิจกรรมสำเร็จ');
+      }
     } else {
       const acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
-      acts.unshift({id:'act_'+Date.now(),name,type,lat,lng,radius,ptsPerCheckin:pts,timeLabel:time,isOpen:true,created_at:new Date().toISOString()});
+      if (_editingId) {
+        const a=acts.find(x=>x.id===_editingId);
+        if(a){Object.assign(a,{name,type,lat,lng,radius,ptsPerCheckin:pts,timeLabel:time});}
+        alert('✅ บันทึกการแก้ไขสำเร็จ');
+      } else {
+        acts.unshift({id:'act_'+Date.now(),name,type,lat,lng,radius,ptsPerCheckin:pts,timeLabel:time,isOpen:true,created_at:new Date().toISOString()});
+        alert('✅ สร้างกิจกรรมสำเร็จ');
+      }
       localStorage.setItem('pgo_activities',JSON.stringify(acts));
     }
-    ['act-name','act-lat','act-lng','act-time'].forEach(id=>$(id).value='');
-    $('act-radius').value='100'; $('act-pts').value='20';
-    clearImage();
+    cancelEdit(); // resets form + button label
     loadActivities(); loadActivitiesForDraw();
-    alert('✅ สร้างกิจกรรมสำเร็จ');
   } catch(e) { showErr('act-err',e.message); }
   finally { $('act-create-btn').disabled=false; }
 }
@@ -619,6 +641,36 @@ async function deleteActivity(id) {
 function copyCheckinLink(id) {
   const url=location.origin+'/index.html?activity='+id;
   navigator.clipboard.writeText(url).then(()=>alert('✅ คัดลอกลิงก์แล้ว:\n'+url)).catch(()=>prompt('คัดลอกลิงก์:',url));
+}
+
+function editActivity(a) {
+  _editingId = a.id;
+  $('act-name').value   = a.name||'';
+  $('act-type').value   = a.type||'raid';
+  $('act-pts').value    = a.pts_per_checkin||a.ptsPerCheckin||20;
+  $('act-lat').value    = a.lat||'';
+  $('act-lng').value    = a.lng||'';
+  $('act-radius').value = a.radius||100;
+  $('act-time').value   = a.time_label||a.timeLabel||'';
+  // show existing image preview
+  if (a.image_url) {
+    $('img-preview').src=a.image_url;
+    $('img-preview-wrap').style.display='block';
+    $('img-clear-btn').style.display='';
+  } else { clearImage(); }
+  $('act-create-btn').textContent='💾 บันทึกการแก้ไข';
+  $('act-cancel-btn').style.display='';
+  $('act-name').scrollIntoView({behavior:'smooth',block:'center'});
+  $('act-name').focus();
+}
+
+function cancelEdit() {
+  _editingId=null;
+  ['act-name','act-lat','act-lng','act-time'].forEach(id=>$(id).value='');
+  $('act-radius').value='100'; $('act-pts').value='20'; $('act-type').value='raid';
+  clearImage();
+  $('act-create-btn').textContent='✅ สร้างกิจกรรม';
+  $('act-cancel-btn').style.display='none';
 }
 
 function previewImage(input) {
