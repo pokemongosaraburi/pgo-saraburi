@@ -240,7 +240,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('act-image').click()">🖼 เลือกรูปภาพ</button>
             <button type="button" class="btn btn-secondary btn-sm" id="img-clear-btn" onclick="clearImage()" style="display:none">✕ ลบรูป</button>
           </div>
-          <p style="font-size:11px;color:#9ca3af;margin-top:5px">รองรับ JPG, PNG, WebP · ขนาดไม่เกิน 2MB</p>
+          <p style="font-size:11px;color:#9ca3af;margin-top:5px">รองรับ JPG, PNG, WebP · แนะนำ 1200×630px (16:9) · ระบบ resize อัตโนมัติ</p>
         </div>
       </div>
       <button class="btn btn-secondary btn-sm" style="margin-bottom:10px;width:auto" onclick="useMyGPS()">📍 ใช้ GPS ของฉัน</button>
@@ -570,12 +570,10 @@ async function createActivity() {
       let image_url = $('img-preview').src.startsWith('http') && !$('act-image').files[0]
                       ? $('img-preview').src   // keep existing URL
                       : '';
-      const imgFile=$('act-image').files[0];
-      if (imgFile) {
-        if (imgFile.size>2*1024*1024) { showErr('act-err','รูปภาพต้องไม่เกิน 2MB'); $('act-create-btn').disabled=false; return; }
-        const ext=imgFile.name.split('.').pop();
+      if (_resizedBlob) {
+        const ext=_resizedBlob.type==='image/png'?'png':'jpg';
         const path=`activity_${Date.now()}.${ext}`;
-        const {error:upErr}=await db.storage.from('activity-images').upload(path,imgFile,{contentType:imgFile.type,upsert:false});
+        const {error:upErr}=await db.storage.from('activity-images').upload(path,_resizedBlob,{contentType:_resizedBlob.type,upsert:false});
         if (upErr) throw upErr;
         const {data:{publicUrl}}=db.storage.from('activity-images').getPublicUrl(path);
         image_url=publicUrl;
@@ -673,21 +671,43 @@ function cancelEdit() {
   $('act-cancel-btn').style.display='none';
 }
 
+let _resizedBlob = null; // stores resized image blob ready for upload
+
 function previewImage(input) {
   const file=input.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    $('img-preview').src=e.target.result;
-    $('img-preview-wrap').style.display='block';
-    $('img-clear-btn').style.display='';
+  const MAX_W=1200, MAX_H=630, QUALITY=0.88;
+  const img=new Image();
+  const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    URL.revokeObjectURL(url);
+    let w=img.width, h=img.height;
+    // scale down proportionally if exceeds max
+    if (w>MAX_W||h>MAX_H) {
+      const ratio=Math.min(MAX_W/w, MAX_H/h);
+      w=Math.round(w*ratio); h=Math.round(h*ratio);
+    }
+    const canvas=document.createElement('canvas');
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    canvas.toBlob(blob=>{
+      _resizedBlob=blob;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        $('img-preview').src=e.target.result;
+        $('img-preview-wrap').style.display='block';
+        $('img-clear-btn').style.display='';
+      };
+      reader.readAsDataURL(blob);
+    }, file.type==='image/png'?'image/png':'image/jpeg', QUALITY);
   };
-  reader.readAsDataURL(file);
+  img.src=url;
 }
 function clearImage() {
   $('act-image').value='';
   $('img-preview').src='';
   $('img-preview-wrap').style.display='none';
   $('img-clear-btn').style.display='none';
+  _resizedBlob=null;
 }
 
 function useMyGPS() {
