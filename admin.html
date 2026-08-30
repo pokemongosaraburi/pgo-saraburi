@@ -227,8 +227,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <input class="form-input" id="act-radius" type="number" value="100" min="10">
         </div>
         <div class="form-group">
-          <label class="form-label">ช่วงเวลา</label>
-          <input class="form-input" id="act-time" type="text" placeholder="วันนี้ 14:00–17:00 น.">
+          <label class="form-label">เวลาเริ่ม (ไม่บังคับ)</label>
+          <input class="form-input" id="act-start" type="datetime-local">
+        </div>
+        <div class="form-group">
+          <label class="form-label">เวลาสิ้นสุด (ไม่บังคับ)</label>
+          <input class="form-input" id="act-end" type="datetime-local">
         </div>
         <div class="form-group" style="grid-column:1/-1">
           <label class="form-label">รูปภาพกิจกรรม (ไม่บังคับ)</label>
@@ -537,7 +541,7 @@ async function loadActivities() {
           <div style="flex:1">
             <div style="font-size:14px;font-weight:700">${a.name}</div>
             <div style="font-size:12px;color:#6b7280;margin-top:3px">📍 ${a.lat},${a.lng} · รัศมี ${a.radius}m · ⭐${a.pts_per_checkin||a.ptsPerCheckin||20}pt</div>
-            <div style="font-size:12px;color:#6b7280">⏰ ${a.time_label||a.timeLabel||'-'}</div>
+            <div style="font-size:12px;color:#6b7280">⏰ ${fmtActivityTime(a)}</div>
           </div>
           <span class="badge ${(a.is_open||a.isOpen)?'b-open':'b-closed'}">${(a.is_open||a.isOpen)?'🟢 Live':'⚫ ปิดแล้ว'}</span>
         </div>
@@ -559,7 +563,8 @@ async function createActivity() {
   const lng=    parseFloat($('act-lng').value);
   const radius= parseInt($('act-radius').value)||100;
   const pts=    parseInt($('act-pts').value)||20;
-  const time=   $('act-time').value.trim();
+  const start=  $('act-start').value ? new Date($('act-start').value).toISOString() : null;
+  const end=    $('act-end').value   ? new Date($('act-end').value).toISOString()   : null;
   hideErr('act-err');
   if (!name) { showErr('act-err','กรุณาใส่ชื่อกิจกรรม'); return; }
   if (isNaN(lat)||isNaN(lng)) { showErr('act-err','กรุณาใส่พิกัด GPS'); return; }
@@ -583,12 +588,12 @@ async function createActivity() {
 
       if (_editingId) {
         // EDIT MODE
-        const {error}=await db.from('activities').update({name,type,lat,lng,radius,pts_per_checkin:pts,time_label:time,image_url}).eq('id',_editingId);
+        const {error}=await db.from('activities').update({name,type,lat,lng,radius,pts_per_checkin:pts,start_time:start,end_time:end,image_url}).eq('id',_editingId);
         if (error) throw error;
         alert('✅ บันทึกการแก้ไขสำเร็จ');
       } else {
         // CREATE MODE
-        const {error}=await db.from('activities').insert({name,type,lat,lng,radius,pts_per_checkin:pts,time_label:time,is_open:true,image_url});
+        const {error}=await db.from('activities').insert({name,type,lat,lng,radius,pts_per_checkin:pts,start_time:start,end_time:end,is_open:true,image_url});
         if (error) throw error;
         alert('✅ สร้างกิจกรรมสำเร็จ');
       }
@@ -596,10 +601,10 @@ async function createActivity() {
       const acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
       if (_editingId) {
         const a=acts.find(x=>x.id===_editingId);
-        if(a){Object.assign(a,{name,type,lat,lng,radius,ptsPerCheckin:pts,timeLabel:time});}
+        if(a){Object.assign(a,{name,type,lat,lng,radius,ptsPerCheckin:pts,startTime:start,endTime:end});}
         alert('✅ บันทึกการแก้ไขสำเร็จ');
       } else {
-        acts.unshift({id:'act_'+Date.now(),name,type,lat,lng,radius,ptsPerCheckin:pts,timeLabel:time,isOpen:true,created_at:new Date().toISOString()});
+        acts.unshift({id:'act_'+Date.now(),name,type,lat,lng,radius,ptsPerCheckin:pts,startTime:start,endTime:end,isOpen:true,created_at:new Date().toISOString()});
         alert('✅ สร้างกิจกรรมสำเร็จ');
       }
       localStorage.setItem('pgo_activities',JSON.stringify(acts));
@@ -641,6 +646,26 @@ function copyCheckinLink(id) {
   navigator.clipboard.writeText(url).then(()=>alert('✅ คัดลอกลิงก์แล้ว:\n'+url)).catch(()=>prompt('คัดลอกลิงก์:',url));
 }
 
+// ==================== Time helpers ====================
+function toLocalDatetime(iso) {
+  const d=new Date(iso), pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtDT(iso) {
+  if (!iso) return '?';
+  return new Date(iso).toLocaleString('th-TH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function fmtActivityTime(a) {
+  if (a.start_time||a.end_time) return `${fmtDT(a.start_time)} – ${fmtDT(a.end_time)}`;
+  return a.time_label||a.timeLabel||'ไม่กำหนดเวลา';
+}
+function isActivityInTimeWindow(a) {
+  const now=new Date();
+  if (a.start_time && now < new Date(a.start_time)) return false;
+  if (a.end_time   && now > new Date(a.end_time))   return false;
+  return true;
+}
+
 function editActivity(a) {
   _editingId = a.id;
   $('act-name').value   = a.name||'';
@@ -649,7 +674,8 @@ function editActivity(a) {
   $('act-lat').value    = a.lat||'';
   $('act-lng').value    = a.lng||'';
   $('act-radius').value = a.radius||100;
-  $('act-time').value   = a.time_label||a.timeLabel||'';
+  $('act-start').value  = a.start_time ? toLocalDatetime(a.start_time) : '';
+  $('act-end').value    = a.end_time   ? toLocalDatetime(a.end_time)   : '';
   // show existing image preview
   if (a.image_url) {
     $('img-preview').src=a.image_url;
@@ -664,7 +690,7 @@ function editActivity(a) {
 
 function cancelEdit() {
   _editingId=null;
-  ['act-name','act-lat','act-lng','act-time'].forEach(id=>$(id).value='');
+  ['act-name','act-lat','act-lng','act-start','act-end'].forEach(id=>$(id).value='');
   $('act-radius').value='100'; $('act-pts').value='20'; $('act-type').value='raid';
   clearImage();
   $('act-create-btn').textContent='✅ สร้างกิจกรรม';
