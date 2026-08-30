@@ -446,6 +446,7 @@ async function renderActivityList(member) {
     const icon = TYPE_ICON[act.type]||'🎮';
     const demoNote = (act.radius>=10000) ? ' <span style="font-size:10px;color:#9ca3af">(Demo)</span>' : '';
     return `<div class="card card-activity">
+  ${act.image_url?`<img src="${act.image_url}" alt="รูปกิจกรรม" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:10px">`:''}
   <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
     <div style="font-size:30px;flex-shrink:0">${icon}</div>
     <div style="flex:1;min-width:0">

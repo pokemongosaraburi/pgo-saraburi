@@ -230,6 +230,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <label class="form-label">ช่วงเวลา</label>
           <input class="form-input" id="act-time" type="text" placeholder="วันนี้ 14:00–17:00 น.">
         </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">รูปภาพกิจกรรม (ไม่บังคับ)</label>
+          <div id="img-preview-wrap" style="display:none;margin-bottom:8px">
+            <img id="img-preview" style="width:100%;max-height:180px;object-fit:cover;border-radius:9px;border:1.5px solid #e5e7eb">
+          </div>
+          <input type="file" id="act-image" accept="image/*" onchange="previewImage(this)" style="display:none">
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('act-image').click()">🖼 เลือกรูปภาพ</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="img-clear-btn" onclick="clearImage()" style="display:none">✕ ลบรูป</button>
+          </div>
+          <p style="font-size:11px;color:#9ca3af;margin-top:5px">รองรับ JPG, PNG, WebP · ขนาดไม่เกิน 2MB</p>
+        </div>
       </div>
       <button class="btn btn-secondary btn-sm" style="margin-bottom:10px;width:auto" onclick="useMyGPS()">📍 ใช้ GPS ของฉัน</button>
       <button class="btn btn-primary" id="act-create-btn" onclick="createActivity()">✅ สร้างกิจกรรม</button>
@@ -517,6 +529,7 @@ async function loadActivities() {
     if (!acts.length) { el.innerHTML='<div class="empty">ยังไม่มีกิจกรรม</div>'; return; }
     el.innerHTML=acts.map(a=>`
       <div class="card" style="margin-bottom:8px">
+        ${a.image_url?`<img src="${a.image_url}" alt="รูปกิจกรรม" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px">`:''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1">
             <div style="font-size:14px;font-weight:700">${a.name}</div>
@@ -549,7 +562,19 @@ async function createActivity() {
   $('act-create-btn').disabled=true;
   try {
     if (IS_CONFIGURED && db) {
-      const {error}=await db.from('activities').insert({name,type,lat,lng,radius,pts_per_checkin:pts,time_label:time,is_open:true});
+      // Upload image if selected
+      let image_url='';
+      const imgFile=$('act-image').files[0];
+      if (imgFile) {
+        if (imgFile.size>2*1024*1024) { showErr('act-err','รูปภาพต้องไม่เกิน 2MB'); $('act-create-btn').disabled=false; return; }
+        const ext=imgFile.name.split('.').pop();
+        const path=`activity_${Date.now()}.${ext}`;
+        const {data:upData,error:upErr}=await db.storage.from('activity-images').upload(path,imgFile,{contentType:imgFile.type,upsert:false});
+        if (upErr) throw upErr;
+        const {data:{publicUrl}}=db.storage.from('activity-images').getPublicUrl(path);
+        image_url=publicUrl;
+      }
+      const {error}=await db.from('activities').insert({name,type,lat,lng,radius,pts_per_checkin:pts,time_label:time,is_open:true,image_url});
       if (error) throw error;
     } else {
       const acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
@@ -558,6 +583,7 @@ async function createActivity() {
     }
     ['act-name','act-lat','act-lng','act-time'].forEach(id=>$(id).value='');
     $('act-radius').value='100'; $('act-pts').value='20';
+    clearImage();
     loadActivities(); loadActivitiesForDraw();
     alert('✅ สร้างกิจกรรมสำเร็จ');
   } catch(e) { showErr('act-err',e.message); }
@@ -593,6 +619,23 @@ async function deleteActivity(id) {
 function copyCheckinLink(id) {
   const url=location.origin+'/index.html?activity='+id;
   navigator.clipboard.writeText(url).then(()=>alert('✅ คัดลอกลิงก์แล้ว:\n'+url)).catch(()=>prompt('คัดลอกลิงก์:',url));
+}
+
+function previewImage(input) {
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    $('img-preview').src=e.target.result;
+    $('img-preview-wrap').style.display='block';
+    $('img-clear-btn').style.display='';
+  };
+  reader.readAsDataURL(file);
+}
+function clearImage() {
+  $('act-image').value='';
+  $('img-preview').src='';
+  $('img-preview-wrap').style.display='none';
+  $('img-clear-btn').style.display='none';
 }
 
 function useMyGPS() {
