@@ -642,9 +642,11 @@ function showPrizePopup(myWins) {
     // ปุ่มลิงค์แลกรางวัล
     if (w.prize_link) {
       const linkBtn = document.createElement('a');
+      linkBtn.href = w.prize_link.startsWith('http') ? w.prize_link : 'https://' + w.prize_link;
+      linkBtn.target = '_blank';
+      linkBtn.rel = 'noopener noreferrer';
       linkBtn.textContent = '🔗 ไปหน้าแลกรางวัล';
       linkBtn.style.cssText = 'display:inline-block;padding:8px 20px;background:#3b82f6;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:4px;cursor:pointer';
-      linkBtn.addEventListener('click', e => { e.stopPropagation(); window.open(w.prize_link, '_blank'); });
       prizebox.appendChild(linkBtn);
     }
 
