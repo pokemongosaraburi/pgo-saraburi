@@ -835,14 +835,77 @@ async function loadActivitiesForDraw() {
 function addPrizeRow(name='', qty=1) {
   const wrap=$('prize-rows-wrap');
   const row=document.createElement('div');
-  row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
+  row.className='prize-row-wrap';
+  row.style.cssText='border:1.5px solid #e5e7eb;border-radius:11px;padding:12px;margin-bottom:10px;background:#fafafa';
   row.innerHTML=`
-    <input class="form-input prize-name" type="text" placeholder="ชื่อรางวัล เช่น Premium Pass" value="${name}" style="flex:1;min-width:0" oninput="updatePrizeTotal()">
-    <input class="form-input prize-qty" type="number" value="${qty}" min="1" max="500" style="width:72px;text-align:center" oninput="updatePrizeTotal()">
-    <span style="font-size:12px;color:#6b7280;white-space:nowrap">คน</span>
-    <button type="button" onclick="this.closest('div').remove();updatePrizeTotal()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:20px;line-height:1;padding:0 2px">×</button>`;
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
+      <input class="form-input prize-name" type="text" placeholder="ชื่อรางวัล เช่น Premium Pass" value="${name}" style="flex:1;min-width:0" oninput="updatePrizeTotal()">
+      <input class="form-input prize-qty" type="number" value="${qty}" min="1" max="20" style="width:72px;text-align:center" oninput="updatePrizeSlots(this);updatePrizeTotal()">
+      <span style="font-size:12px;color:#6b7280;white-space:nowrap">คน</span>
+      <button type="button" onclick="this.closest('.prize-row-wrap').remove();updatePrizeTotal()" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:20px;line-height:1;padding:0 2px">×</button>
+    </div>
+    <div class="prize-slots"></div>`;
   wrap.appendChild(row);
+  updatePrizeSlots(row.querySelector('.prize-qty'));
   updatePrizeTotal();
+}
+
+function updatePrizeSlots(qtyInput) {
+  const n=Math.min(parseInt(qtyInput.value)||1, 20);
+  const slotsDiv=qtyInput.closest('.prize-row-wrap').querySelector('.prize-slots');
+  const existing=[...slotsDiv.querySelectorAll('.prize-slot')];
+  const saved=existing.map(s=>({
+    code: s.querySelector('.slot-code')?.value||'',
+    link: s.querySelector('.slot-link')?.value||'',
+    img:  s.querySelector('.slot-img-data')?.value||''
+  }));
+  slotsDiv.innerHTML='';
+  for(let i=0;i<n;i++){
+    const d=saved[i]||{};
+    const slot=document.createElement('div');
+    slot.className='prize-slot';
+    slot.style.cssText='border-top:1px dashed #e5e7eb;padding-top:10px;margin-top:8px';
+    slot.innerHTML=`
+      <div style="font-size:11px;font-weight:700;color:#E8274B;margin-bottom:7px">🎁 รางวัลที่ ${i+1}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label style="font-size:11px;color:#9ca3af;display:block;margin-bottom:3px">Redemption Code</label>
+          <input class="form-input slot-code" type="text" placeholder="ABC-123-XYZ" value="${d.code||''}" style="font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#9ca3af;display:block;margin-bottom:3px">ลิงค์แลกรางวัล</label>
+          <input class="form-input slot-link" type="url" placeholder="https://..." value="${d.link||''}" style="font-size:13px">
+        </div>
+        <div style="grid-column:1/-1">
+          <label style="font-size:11px;color:#9ca3af;display:block;margin-bottom:3px">รูปภาพโค้ด (ถ่ายรูป Redemption Code)</label>
+          <input class="slot-img-data" type="hidden" value="${d.img||''}">
+          ${d.img?`<img src="${d.img}" style="max-width:160px;max-height:90px;border-radius:8px;display:block;margin-bottom:6px">`:``}
+          <input type="file" accept="image/*" style="font-size:12px" onchange="handleSlotImg(this)">
+        </div>
+      </div>`;
+    slotsDiv.appendChild(slot);
+  }
+}
+
+function handleSlotImg(input){
+  const file=input.files[0]; if(!file) return;
+  const canvas=document.createElement('canvas');
+  const img=new Image();
+  const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    const MAX=600; let w=img.width, h=img.height;
+    if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    const data=canvas.toDataURL('image/jpeg',0.82);
+    URL.revokeObjectURL(url);
+    const slot=input.closest('.prize-slot');
+    slot.querySelector('.slot-img-data').value=data;
+    let prev=slot.querySelector('.slot-img-preview');
+    if(!prev){prev=document.createElement('img');prev.className='slot-img-preview';prev.style.cssText='max-width:160px;max-height:90px;border-radius:8px;display:block;margin-bottom:6px';input.before(prev);}
+    prev.src=data;
+  };
+  img.src=url;
 }
 
 function updatePrizeTotal() {
@@ -851,9 +914,14 @@ function updatePrizeTotal() {
 }
 
 function getPrizeList() {
-  return [...document.querySelectorAll('#prize-rows-wrap > div')].map(row=>({
-    name: row.querySelector('.prize-name').value.trim()||'รางวัล',
-    qty:  parseInt(row.querySelector('.prize-qty').value)||1
+  return [...document.querySelectorAll('.prize-row-wrap')].map(row=>({
+    name:  row.querySelector('.prize-name').value.trim()||'รางวัล',
+    qty:   parseInt(row.querySelector('.prize-qty').value)||1,
+    slots: [...row.querySelectorAll('.prize-slot')].map(s=>({
+      code: s.querySelector('.slot-code')?.value.trim()||'',
+      link: s.querySelector('.slot-link')?.value.trim()||'',
+      img:  s.querySelector('.slot-img-data')?.value||''
+    }))
   })).filter(p=>p.qty>0);
 }
 
@@ -902,7 +970,12 @@ function renderWinnersTable(winners) {
   tbody.innerHTML=winners.map((w,i)=>`
     <tr>
       <td style="font-weight:700;color:#E8274B">#${w.prize_rank||i+1}</td>
-      <td style="font-size:12px">${w.prize_name||'-'}</td>
+      <td style="font-size:12px">
+        <div style="font-weight:600">${w.prize_name||'-'}</div>
+        ${w.prize_image_url?`<img src="${w.prize_image_url}" style="max-width:80px;max-height:50px;border-radius:6px;margin-top:4px;display:block">`:``}
+        ${w.prize_code?`<div style="font-family:monospace;font-size:11px;background:#f0fdf4;color:#15803d;padding:2px 6px;border-radius:4px;margin-top:3px;cursor:pointer" onclick="navigator.clipboard.writeText('${w.prize_code}')" title="คลิกเพื่อคัดลอก">${w.prize_code} 📋</div>`:''}
+        ${w.prize_link?`<a href="${w.prize_link}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">🔗 ลิงค์แลก</a>`:''}
+      </td>
       <td><strong>${w.member_name}</strong></td>
       <td style="font-size:12px;color:#6b7280">${w.member_gameid||''}</td>
       <td><span class="badge ${TEAM_B[w.member_team]||''}">${TEAM_LABEL[w.member_team]||''}</span></td>
@@ -987,9 +1060,9 @@ function doDraw() {
   const prizeRows=getPrizeList();
   if (!prizeRows.length) { alert('กรุณาเพิ่มรายการรางวัลก่อน'); return; }
   if (!drawCandidates.length) { alert('ไม่มีผู้มีสิทธิ์สุ่ม'); return; }
-  // Build flat prize list: [{name, tierLabel}]
+  // Build flat prize list: [{name, slot:{code,link,img}}]
   const prizes=[];
-  prizeRows.forEach((row,ti)=>{ for(let i=0;i<row.qty;i++) prizes.push(row.name); });
+  prizeRows.forEach(row=>{ for(let i=0;i<row.qty;i++) prizes.push({name:row.name, slot:row.slots[i]||{}}); });
   const n=Math.min(prizes.length, drawCandidates.length);
   if (prizes.length>drawCandidates.length) {
     if (!confirm(`ผู้มีสิทธิ์มีแค่ ${drawCandidates.length} คน แต่ตั้งรางวัลไว้ ${prizes.length} รางวัล\nจะสุ่มเท่าที่มี (${drawCandidates.length} คน) ไหม?`)) return;
@@ -1009,17 +1082,18 @@ function doDraw() {
       const wi=Math.floor(Math.random()*pool.length);
       const winner=pool.splice(wi,1)[0];
       slot.textContent=winner.member_name||winner.memberName||'';
-      const prizeName=prizes[idx], rank=drawWinners.length+idx+1;
+      const prize=prizes[idx], rank=drawWinners.length+idx+1;
       $('draw-winner-area').innerHTML+=`
         <div class="draw-winner-card" style="margin-bottom:8px">
-          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">🎁 ${prizeName} · อันดับ #${rank}</div>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">🎁 ${prize.name} · อันดับ #${rank}</div>
           <div style="font-size:22px">🎉</div>
           <div style="font-size:20px;font-weight:800">${winner.member_name||winner.memberName}</div>
           <div style="font-size:13px;color:#6b7280">${winner.member_gameid||winner.memberGameId||''} · ${TEAM_LABEL[winner.member_team||winner.memberTeam]||''}</div>
+          ${prize.slot?.code?`<div style="font-size:12px;margin-top:6px;background:#f0fdf4;border-radius:6px;padding:4px 8px;font-family:monospace;color:#15803d">${prize.slot.code}</div>`:''}
         </div>`;
       try {
         if (IS_CONFIGURED && db) {
-          await db.from('draw_winners').insert({activity_id:actId,member_id:winner.member_id||winner.memberId,member_name:winner.member_name||winner.memberName,member_gameid:winner.member_gameid||winner.memberGameId,member_team:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prizeName,prize_delivered:false});
+          await db.from('draw_winners').insert({activity_id:actId,member_id:winner.member_id||winner.memberId,member_name:winner.member_name||winner.memberName,member_gameid:winner.member_gameid||winner.memberGameId,member_team:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prize.name,prize_code:prize.slot?.code||null,prize_image_url:prize.slot?.img||null,prize_link:prize.slot?.link||null,prize_delivered:false});
         } else {
           const ws=JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]');
           ws.push({id:'dw_'+Date.now(),activityId:actId,memberId:winner.member_id||winner.memberId,memberName:winner.member_name||winner.memberName,memberGameId:winner.member_gameid||winner.memberGameId,memberTeam:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prizeName,prize_delivered:false,drawn_at:new Date().toISOString()});
