@@ -732,6 +732,7 @@ function cancelEdit() {
   $('act-cancel-btn').style.display='none';
 }
 
+let _editingId   = null; // null = create mode, string = edit mode
 let _resizedBlob = null; // stores resized image blob ready for upload
 
 function previewImage(input) {
