@@ -592,37 +592,70 @@ function showPrizePopup(myWins) {
   const unseen = myWins.filter(w => !seen.includes(w.id));
   if (!unseen.length) return;
 
-  // mark all as seen
   const newSeen = [...new Set([...seen, ...unseen.map(w=>w.id)])];
   localStorage.setItem('pgo_seen_prizes', JSON.stringify(newSeen));
 
-  // show one popup per prize sequentially
   let idx = 0;
   function showOne() {
     if (idx >= unseen.length) return;
     const w = unseen[idx++];
+
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s';
-    overlay.innerHTML = `
-      <div style="background:#fff;border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;position:relative;animation:popIn 0.4s cubic-bezier(.175,.885,.32,1.275)">
-        <div style="font-size:64px;line-height:1;margin-bottom:8px">🎁</div>
-        <div style="font-size:22px;font-weight:800;color:#E8274B;margin-bottom:4px">🎉 ยินดีด้วย!</div>
-        <div style="font-size:14px;color:#6b7280;margin-bottom:16px">คุณได้รับรางวัลจากการสุ่ม</div>
-        <div style="background:#fff7ed;border:2px solid #fed7aa;border-radius:12px;padding:14px;margin-bottom:16px">
-          <div style="font-size:18px;font-weight:800;color:#111;margin-bottom:8px">${w.prize_name||'รางวัล'}</div>
-          ${w.prize_image_url ? `<img src="${w.prize_image_url}" style="max-width:100%;max-height:180px;border-radius:10px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto">` : ''}
-          ${w.prize_code ? `
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;margin-bottom:8px">
-              <div style="font-size:11px;color:#6b7280;margin-bottom:4px">Redemption Code</div>
-              <div style="font-family:monospace;font-size:16px;font-weight:800;color:#15803d;letter-spacing:1px" id="pcode-${w.id}">${w.prize_code}</div>
-              <button data-code="${w.prize_code.replace(/"/g,'&quot;')}" onclick="copyPrizeCode(this)" style="margin-top:8px;padding:6px 16px;background:#15803d;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer">📋 คัดลอกโค้ด</button>
-            </div>` : ''}
-          ${w.prize_link ? `<a href="${w.prize_link}" target="_blank" style="display:inline-block;padding:8px 20px;background:#3b82f6;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:4px">🔗 ไปหน้าแลกรางวัล</a>` : ''}
-        </div>
-        <button onclick="this.closest('div[style]').remove();setTimeout(showOne_${idx},400)" style="width:100%;padding:12px;background:#E8274B;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer">${idx < unseen.length ? '➡️ รางวัลถัดไป' : '✅ รับทราบแล้ว'}</button>
+
+    // สร้าง inner card
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#fff;border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;position:relative;animation:popIn 0.4s cubic-bezier(.175,.885,.32,1.275)';
+
+    // ส่วนหัว
+    card.innerHTML = `
+      <div style="font-size:64px;line-height:1;margin-bottom:8px">🎁</div>
+      <div style="font-size:22px;font-weight:800;color:#E8274B;margin-bottom:4px">🎉 ยินดีด้วย!</div>
+      <div style="font-size:14px;color:#6b7280;margin-bottom:16px">คุณได้รับรางวัลจากการสุ่ม</div>
+      <div style="background:#fff7ed;border:2px solid #fed7aa;border-radius:12px;padding:14px;margin-bottom:16px" id="pp-prize-box">
+        <div style="font-size:18px;font-weight:800;color:#111;margin-bottom:8px">${w.prize_name||'รางวัล'}</div>
+        ${w.prize_image_url ? `<img src="${w.prize_image_url}" style="max-width:100%;max-height:180px;border-radius:10px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto">` : ''}
       </div>`;
-    // patch next button
-    overlay.querySelector('button:last-child').onclick = () => { overlay.remove(); setTimeout(showOne, 400); };
+
+    const prizebox = card.querySelector('#pp-prize-box');
+
+    // ปุ่มคัดลอกโค้ด (สร้างด้วย DOM ไม่ใช้ innerHTML)
+    if (w.prize_code) {
+      const codeWrap = document.createElement('div');
+      codeWrap.style.cssText = 'background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;margin-bottom:8px';
+      codeWrap.innerHTML = `<div style="font-size:11px;color:#6b7280;margin-bottom:4px">Redemption Code</div><div style="font-family:monospace;font-size:16px;font-weight:800;color:#15803d;letter-spacing:1px">${w.prize_code}</div>`;
+      const copyBtn = document.createElement('button');
+      copyBtn.textContent = '📋 คัดลอกโค้ด';
+      copyBtn.style.cssText = 'margin-top:8px;padding:6px 16px;background:#15803d;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer';
+      copyBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const doSuccess = () => { copyBtn.textContent='✅ คัดลอกสำเร็จ!'; copyBtn.style.background='#166534'; setTimeout(()=>{copyBtn.textContent='📋 คัดลอกโค้ด';copyBtn.style.background='#15803d';},2500); };
+        navigator.clipboard ? navigator.clipboard.writeText(w.prize_code).then(doSuccess).catch(()=>{
+          const ta=document.createElement('textarea'); ta.value=w.prize_code; ta.style.cssText='position:fixed;opacity:0';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSuccess();
+        }) : (()=>{ const ta=document.createElement('textarea'); ta.value=w.prize_code; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSuccess(); })();
+      });
+      codeWrap.appendChild(copyBtn);
+      prizebox.appendChild(codeWrap);
+    }
+
+    // ปุ่มลิงค์แลกรางวัล
+    if (w.prize_link) {
+      const linkBtn = document.createElement('a');
+      linkBtn.textContent = '🔗 ไปหน้าแลกรางวัล';
+      linkBtn.style.cssText = 'display:inline-block;padding:8px 20px;background:#3b82f6;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:4px;cursor:pointer';
+      linkBtn.addEventListener('click', e => { e.stopPropagation(); window.open(w.prize_link, '_blank'); });
+      prizebox.appendChild(linkBtn);
+    }
+
+    // ปุ่มรับทราบ/ถัดไป
+    const dismissBtn = document.createElement('button');
+    dismissBtn.textContent = idx < unseen.length ? '➡️ รางวัลถัดไป' : '✅ รับทราบแล้ว';
+    dismissBtn.style.cssText = 'width:100%;padding:12px;background:#E8274B;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer';
+    dismissBtn.addEventListener('click', () => { overlay.remove(); setTimeout(showOne, 400); });
+    card.appendChild(dismissBtn);
+
+    overlay.appendChild(card);
     document.body.appendChild(overlay);
   }
   showOne();
