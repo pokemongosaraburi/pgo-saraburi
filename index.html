@@ -359,17 +359,15 @@ async function doRegister() {
 
   try {
     if (IS_CONFIGURED && db) {
-      // Check gameid taken by different device
-      const { data: existing } = await db.from('members').select('fp').eq('gameid', gameid).maybeSingle();
-      if (existing && existing.fp !== fp) {
-        showErr(errEl,'⚠️ Trainer Name นี้ถูกลงทะเบียนจากอุปกรณ์อื่นแล้ว');
+      const { data, error } = await db.rpc('register_member', {
+        p_name: name, p_gameid: gameid, p_phone: phone, p_team: selectedTeam, p_fp: fp
+      });
+      if (error) {
+        if (error.message && error.message.includes('GAMEID_TAKEN')) {
+          showErr(errEl,'⚠️ Trainer Name นี้ถูกลงทะเบียนจากอุปกรณ์อื่นแล้ว');
+        } else { throw error; }
         return;
       }
-      // Upsert member
-      const { data, error } = await db.from('members')
-        .upsert({ name, gameid, phone, team: selectedTeam, fp, updated_at: new Date().toISOString() }, { onConflict: 'fp' })
-        .select().single();
-      if (error) throw error;
       currentMember = data;
       lsSet('member_fp', fp);
       localStorage.removeItem('pgo_logged_out');
@@ -409,15 +407,14 @@ async function doLogin() {
   showLoader('กำลังตรวจสอบ...');
   try {
     if (IS_CONFIGURED && db) {
-      const { data: member } = await db.from('members')
-        .select('*').ilike('gameid', gameid).maybeSingle();
-      if (!member) { showErr(errEl,'❌ ไม่พบ Trainer Name นี้ในระบบ'); return; }
-      const storedPhone = (member.phone||'').replace(/\D/g,'');
-      if (storedPhone !== phone) { showErr(errEl,'❌ เบอร์โทรไม่ตรงกับที่ลงทะเบียนไว้'); return; }
-      // Link new fingerprint
-      const { error } = await db.from('members').update({ fp, updated_at: new Date().toISOString() }).eq('id', member.id);
-      if (error) throw error;
-      currentMember = { ...member, fp };
+      const { data: member, error } = await db.rpc('login_member', {
+        p_gameid: gameid, p_phone: phone, p_fp: fp
+      });
+      if (error || !member) {
+        showErr(errEl,'❌ Trainer Name หรือเบอร์โทรไม่ถูกต้อง');
+        return;
+      }
+      currentMember = member;
       lsSet('member_fp', fp);
     } else {
       const members = lsGet('members')||[];
@@ -451,12 +448,9 @@ async function renderHome() {
   showLoader('กำลังโหลด...');
   try {
     if (IS_CONFIGURED && db) {
-      const { data } = await db.from('members').select('*').eq('fp', fp).maybeSingle();
+      const { data } = await db.rpc('get_member_by_fp', { p_fp: fp });
       member = data;
       if (!member) { goScreen('register'); return; }
-      // Get rank
-      const { count } = await db.from('members').select('*', {count:'exact'}).gt('points', member.points||0);
-      member._rank = (count||0) + 1;
     } else {
       const members = lsGet('members') || [];
       member = members.find(m => m.fp===fp);
@@ -636,7 +630,7 @@ async function doCheckin() {
     let member = currentMember;
     if (!member) {
       if (IS_CONFIGURED && db) {
-        const { data } = await db.from('members').select('*').eq('fp', fp).maybeSingle();
+        const { data } = await db.rpc('get_member_by_fp', { p_fp: fp });
         member = data;
       } else {
         member = (lsGet('members')||[]).find(m=>m.fp===fp);
@@ -651,17 +645,16 @@ async function doCheckin() {
       const { data: dup } = await db.from('checkins').select('id').eq('member_id', member.id).eq('activity_id', activeActivity.id).maybeSingle();
       if (dup) { showErr(errEl,'คุณเช็คอินกิจกรรมนี้ไปแล้ว'); return; }
 
-      // Insert checkin
+      // Insert checkin — trigger fn_update_member_stats จะอัปเดต events/points อัตโนมัติ
       const { error: ciErr } = await db.from('checkins').insert({
         member_id: member.id, activity_id: activeActivity.id,
         member_name: member.name, member_gameid: member.gameid, member_team: member.team,
-        activity_name: activeActivity.name,
+        activity_name: activeActivity.name, pts_earned: pts,
         distance: gpsResult.dist, accuracy: gpsResult.acc, fp
       });
       if (ciErr) throw ciErr;
 
-      // Update stats
-      await db.from('members').update({ events: (member.events||0)+1, points: (member.points||0)+pts, updated_at: new Date().toISOString() }).eq('id', member.id);
+      // อัปเดต local state (DB อัปเดตโดย trigger แล้ว)
       member = { ...member, events:(member.events||0)+1, points:(member.points||0)+pts };
     } else {
       const checkins = lsGet('checkins')||[];
@@ -714,8 +707,9 @@ window.addEventListener('DOMContentLoaded', () => {
     let hasMember = false;
     if (IS_CONFIGURED && db) {
       try {
-        const { data } = await db.from('members').select('id').eq('fp', fp).maybeSingle();
+        const { data } = await db.rpc('get_member_by_fp', { p_fp: fp });
         hasMember = !!data;
+        if (data) currentMember = data;
       } catch(e) {}
     } else {
       hasMember = !!(lsGet('members')||[]).find(m=>m.fp===fp);
