@@ -490,7 +490,9 @@ async function renderActivityList(member) {
   try {
     if (IS_CONFIGURED && db) {
       const { data: acts } = await db.from('activities').select('*').eq('is_open', true).order('created_at', {ascending:false});
-      activities = acts || [];
+      // กรองออกถ้าหมดเวลาแล้ว (end_time ผ่านไปแล้ว)
+      const now = new Date();
+      activities = (acts || []).filter(a => !a.end_time || now <= new Date(a.end_time));
       if (member && activities.length > 0) {
         const actIds = activities.map(a=>a.id);
         const [{ data: cis }, { data: dws }] = await Promise.all([
