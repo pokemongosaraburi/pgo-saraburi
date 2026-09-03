@@ -97,10 +97,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* QR Scanner */
 #qr-video-wrap{position:relative;width:100%;max-width:320px;margin:0 auto 14px;border-radius:14px;overflow:hidden;background:#000;line-height:0}
 #qr-video{width:100%;display:block;border-radius:14px}
-#qr-scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:180px;height:180px;border:3px solid #E8274B;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.45);pointer-events:none}
-#qr-scan-box::before,#qr-scan-box::after{content:'';position:absolute;width:24px;height:24px;border-color:#fff;border-style:solid}
-#qr-scan-box::before{top:-3px;left:-3px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
-#qr-scan-box::after{bottom:-3px;right:-3px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+#qr-scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:180px;height:180px;border:2px solid rgba(255,255,255,0.6);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);pointer-events:none}
+#qr-scan-box::before,#qr-scan-box::after{content:'';position:absolute;width:28px;height:28px;border-color:#E8274B;border-style:solid}
+#qr-scan-box::before{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+#qr-scan-box::after{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
+#qr-scan-line{position:absolute;left:calc(50% - 90px);width:180px;height:2px;background:linear-gradient(to right,transparent,#E8274B,transparent);animation:scanline 2s ease-in-out infinite;top:50%}
+@keyframes scanline{0%{transform:translateY(-85px);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(85px);opacity:0}}
 </style>
 </head>
 <body>
@@ -345,15 +347,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div id="qr-video-wrap" style="display:none">
         <video id="qr-video" autoplay playsinline muted></video>
         <div id="qr-scan-box"></div>
+        <div id="qr-scan-line"></div>
       </div>
       <canvas id="qr-canvas-scan" style="display:none"></canvas>
-      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" id="scan-toggle-btn" onclick="toggleQRScanner()" style="flex:1;max-width:180px">📷 เปิดกล้อง</button>
-        <button class="btn btn-secondary btn-sm" id="scan-switch-btn" onclick="switchCamera()" style="flex:1;max-width:160px;display:none">🔄 เปลี่ยนกล้อง</button>
+      <div style="text-align:center;margin-bottom:14px">
+        <button class="btn btn-primary" id="scan-toggle-btn" onclick="toggleQRScanner()" style="max-width:220px;margin:0 auto">📷 เปิดกล้อง</button>
       </div>
-      <div id="scan-cam-label" style="font-size:11px;color:#9ca3af;text-align:center;margin-bottom:8px;display:none"></div>
       <div id="scan-result" style="display:none"></div>
-      <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">หาก QR ไม่ถูก กด "เปลี่ยนกล้อง" เพื่อสลับไปกล้องหลัก</p>
+      <hr style="border:none;border-top:1px solid #f0f0f0;margin:16px 0">
+      <div style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:8px">กล้องไม่ได้? พิมพ์ Token ด้านล่าง</div>
+      <div style="display:flex;gap:8px">
+        <input id="manual-token-input" class="form-input" placeholder="วาง Token จาก QR ที่นี่" style="flex:1;font-size:13px">
+        <button class="btn btn-secondary btn-sm" onclick="manualScanToken()" style="flex-shrink:0;white-space:nowrap">✅ ยืนยัน</button>
+      </div>
     </div>
   </div>
 
@@ -499,7 +505,6 @@ async function doLogout() {
 
 // ==================== QR Scanner ====================
 let _scanStream = null, _scanRaf = null, _scanCooldown = false, _lastScannedToken = '';
-let _cameras = [], _camIdx = 0;
 
 function toggleQRScanner() {
   if (_scanStream) stopQRScanner();
@@ -507,101 +512,62 @@ function toggleQRScanner() {
 }
 
 async function startQRScanner() {
-  const infoEl = $('scan-info-msg');
-  infoEl.textContent = '⏳ กำลังขอสิทธิ์กล้อง...';
-  infoEl.className   = 'info-box';
-
-  try {
-    // ขอ permission ก่อน แล้ว enumerate กล้องทั้งหมด
-    const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
-    tmp.getTracks().forEach(t => t.stop());
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    _cameras = devices.filter(d => d.kind === 'videoinput');
-    // บน Android กล้องหลักมักอยู่ท้ายสุด; บน iOS ใช้ facingMode แทน deviceId
-    _camIdx = _cameras.length > 1 ? _cameras.length - 1 : 0;
-  } catch(e) {
-    infoEl.className   = 'err-box';
-    infoEl.textContent = '❌ ไม่สามารถเข้าถึงกล้อง: ' + (e.message || e.name);
-    return;
-  }
-  await _openCamera();
-}
-
-async function _openCamera() {
-  const infoEl  = $('scan-info-msg');
-  const video   = $('qr-video');
-  const wrap    = $('qr-video-wrap');
+  const infoEl    = $('scan-info-msg');
+  const video     = $('qr-video');
+  const wrap      = $('qr-video-wrap');
   const toggleBtn = $('scan-toggle-btn');
-  const switchBtn = $('scan-switch-btn');
-  const camLabel  = $('scan-cam-label');
-
-  // หยุด stream เก่าก่อน
-  if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
-  if (_scanRaf)    { cancelAnimationFrame(_scanRaf); _scanRaf = null; }
 
   infoEl.textContent = '⏳ กำลังเปิดกล้อง...';
   infoEl.className   = 'info-box';
+  $('scan-result').style.display = 'none';
 
-  try {
-    const cam = _cameras[_camIdx];
-    const constraints = cam
-      ? { video: { deviceId: { exact: cam.deviceId } } }
-      : { video: { facingMode: 'environment' } };
+  // ลอง constraint ตามลำดับ — facingMode environment บังคับกล้องหลัง
+  const tryList = [
+    { video: { facingMode: { exact: 'environment' } } },
+    { video: { facingMode: 'environment' } },
+    { video: true }
+  ];
 
-    _scanStream = await navigator.mediaDevices.getUserMedia(constraints);
-    video.srcObject = _scanStream;
-    wrap.style.display = 'block';
-    toggleBtn.textContent = '⏹ หยุดกล้อง';
-    toggleBtn.className   = 'btn btn-danger btn-sm';
-
-    // แสดงปุ่มเปลี่ยนกล้องถ้ามีหลายกล้อง
-    if (_cameras.length > 1) {
-      switchBtn.style.display = '';
-      camLabel.style.display  = '';
-      camLabel.textContent = `กล้อง ${_camIdx + 1}/${_cameras.length}: ${cam?.label || 'camera'}`;
-    }
-
-    $('scan-result').style.display = 'none';
-    _lastScannedToken = '';
-    _scanCooldown     = false;
-
-    await new Promise(resolve => {
-      if (video.readyState >= 2) { resolve(); return; }
-      video.addEventListener('canplay', resolve, { once: true });
-    });
-    await video.play().catch(() => {});
-
-    // แสดง resolution จริง
-    const s = _scanStream.getVideoTracks()[0]?.getSettings();
-    infoEl.textContent = s
-      ? `📷 กำลังสแกน... (${s.width}×${s.height})`
-      : '📷 กำลังสแกน... ให้สมาชิกแสดง QR ที่หน้าจอ';
-
-    _scanRaf = requestAnimationFrame(scanFrame);
-  } catch(e) {
-    infoEl.className   = 'err-box';
-    infoEl.textContent = '❌ ' + (e.message || e.name);
+  let stream = null;
+  for (const c of tryList) {
+    try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+    catch(e) { /* ลองตัวถัดไป */ }
   }
-}
 
-async function switchCamera() {
-  if (!_cameras.length) return;
-  _camIdx = (_camIdx + 1) % _cameras.length;
-  await _openCamera();
+  if (!stream) {
+    infoEl.className   = 'err-box';
+    infoEl.textContent = '❌ ไม่สามารถเปิดกล้องได้ — กรุณาอนุญาตสิทธิ์กล้องในเบราว์เซอร์';
+    return;
+  }
+
+  _scanStream = stream;
+  _lastScannedToken = '';
+  _scanCooldown     = false;
+
+  video.srcObject = stream;
+  wrap.style.display = 'block';
+  toggleBtn.textContent = '⏹ หยุดกล้อง';
+  toggleBtn.className   = 'btn btn-danger';
+
+  // รอ metadata → play → เริ่ม scan loop
+  video.onloadedmetadata = async () => {
+    try { await video.play(); } catch(e) {}
+    const s = stream.getVideoTracks()[0]?.getSettings();
+    infoEl.textContent = `📷 กำลังสแกน...${s ? ` (${s.width}×${s.height})` : ''} ให้สมาชิกแสดง QR`;
+    _scanRaf = requestAnimationFrame(scanFrame);
+  };
 }
 
 function stopQRScanner() {
   if (_scanRaf)    { cancelAnimationFrame(_scanRaf); _scanRaf = null; }
   if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+  const video     = $('qr-video');
   const wrap      = $('qr-video-wrap');
   const toggleBtn = $('scan-toggle-btn');
-  const switchBtn = $('scan-switch-btn');
-  const camLabel  = $('scan-cam-label');
   const info      = $('scan-info-msg');
+  if (video)     { video.srcObject = null; video.onloadedmetadata = null; }
   if (wrap)      wrap.style.display = 'none';
-  if (switchBtn) switchBtn.style.display = 'none';
-  if (camLabel)  camLabel.style.display  = 'none';
-  if (toggleBtn) { toggleBtn.textContent = '📷 เปิดกล้อง'; toggleBtn.className = 'btn btn-primary btn-sm'; }
+  if (toggleBtn) { toggleBtn.textContent = '📷 เปิดกล้อง'; toggleBtn.className = 'btn btn-primary'; }
   if (info)      { info.className = 'info-box'; info.textContent = 'กด "เปิดกล้อง" แล้วให้สมาชิกแสดง QR Code ที่หน้าจอมือถือ'; }
 }
 
@@ -609,16 +575,18 @@ function scanFrame() {
   if (!_scanStream) return;
   const video  = $('qr-video');
   const canvas = $('qr-canvas-scan');
-  if (!video || !canvas || video.paused || video.videoWidth === 0) {
+
+  // ยังไม่มีข้อมูลเฟรม — รอ
+  if (!video || !canvas || video.readyState < 2 || video.videoWidth === 0) {
     _scanRaf = requestAnimationFrame(scanFrame);
     return;
   }
-  // scale ลงไม่เกิน 640px กว้าง เพื่อ performance แต่ไม่ crop
-  const scale  = Math.min(1, 640 / video.videoWidth);
-  canvas.width  = Math.round(video.videoWidth  * scale);
-  canvas.height = Math.round(video.videoHeight * scale);
+
+  // วาด full resolution ลง canvas — ไม่ scale ลง เพื่อให้ jsQR เห็น QR ชัด
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, 0, 0);
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
   if (window.jsQR) {
@@ -627,12 +595,23 @@ function scanFrame() {
     });
     if (code && code.data && code.data !== _lastScannedToken && !_scanCooldown) {
       _lastScannedToken = code.data;
-      _scanCooldown = true;
+      _scanCooldown     = true;
       processScanToken(code.data);
-      return;
+      return; // หยุดรอผล
     }
   }
   _scanRaf = requestAnimationFrame(scanFrame);
+}
+
+// fallback: แอดมินพิมพ์ token เอง
+function manualScanToken() {
+  const input = $('manual-token-input');
+  const token = (input?.value || '').trim();
+  if (!token) return;
+  input.value = '';
+  _lastScannedToken = '';
+  _scanCooldown     = true;
+  processScanToken(token);
 }
 
 async function processScanToken(token) {
