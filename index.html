@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>PGO Saraburi — กิจกรรม</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0f0;min-height:100vh;display:flex;justify-content:center}
@@ -223,6 +224,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- QR SHOW -->
+<div class="screen" id="qr-show">
+  <div class="topbar">
+    <h1 id="qr-act-title">🎫 แสดง QR Code</h1>
+    <p id="qr-act-sub">ให้แอดมินสแกน</p>
+  </div>
+  <div class="content" style="display:flex;flex-direction:column;align-items:center;padding-top:24px">
+    <div style="font-size:13px;color:#6b7280;margin-bottom:14px">แสดง QR Code นี้ให้แอดมินสแกน</div>
+    <div id="qr-canvas" style="padding:16px;background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,0.12);margin-bottom:20px;display:inline-block"></div>
+    <div style="margin-bottom:6px">
+      <div id="qr-countdown" style="font-size:44px;font-weight:800;color:#E8274B;text-align:center;line-height:1">90</div>
+      <div style="font-size:12px;color:#9ca3af;text-align:center;margin-top:4px">วินาที ก่อนหมดอายุ</div>
+    </div>
+    <div id="qr-status-msg" style="font-size:14px;color:#6b7280;margin:16px 0;text-align:center">⏳ รอแอดมินสแกน...</div>
+    <div class="err-box" id="qr-err" style="display:none;width:100%"></div>
+    <button class="btn btn-secondary" id="qr-cancel-btn" onclick="cancelQR()">← ยกเลิก</button>
+    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">QR จะหมดอายุใน 90 วินาที<br>หากหมดอายุ กลับไปกดเช็คอินใหม่</p>
+  </div>
+</div>
+
 <!-- CHECKIN -->
 <div class="screen" id="checkin">
   <div class="topbar">
@@ -328,6 +349,7 @@ let selectedTeam = '';
 let activeActivity = null;
 let gpsResult = null;
 let currentMember = null;
+let _qrCountInterval = null, _qrPollInterval = null;
 
 // ===== Navigation =====
 function goScreen(id) {
@@ -726,7 +748,7 @@ async function doCheckin() {
   const errEl = document.getElementById('ci-err');
   errEl.style.display = 'none';
   document.getElementById('ci-btn').disabled = true;
-  showLoader('กำลังบันทึกการเช็คอิน...');
+  showLoader('กำลังสร้าง QR Code...');
 
   try {
     let member = currentMember;
@@ -734,59 +756,134 @@ async function doCheckin() {
       if (IS_CONFIGURED && db) {
         const { data } = await db.rpc('get_member_by_fp', { p_fp: fp });
         member = data;
-      } else {
-        member = (lsGet('members')||[]).find(m=>m.fp===fp);
       }
       if (!member) { goScreen('register'); return; }
     }
 
-    const pts = activeActivity.pts_per_checkin || activeActivity.ptsPerCheckin || 20;
-
     if (IS_CONFIGURED && db) {
-      // Check duplicate by member_id (stable across device changes)
-      const { data: dup } = await db.from('checkins').select('id').eq('member_id', member.id).eq('activity_id', activeActivity.id).maybeSingle();
-      if (dup) { showErr(errEl,'คุณเช็คอินกิจกรรมนี้ไปแล้ว'); return; }
-
-      // Insert checkin — trigger fn_update_member_stats จะอัปเดต events/points อัตโนมัติ
-      const { error: ciErr } = await db.from('checkins').insert({
-        member_id: member.id, activity_id: activeActivity.id,
-        member_name: member.name, member_gameid: member.gameid, member_team: member.team,
-        activity_name: activeActivity.name, pts_earned: pts,
-        distance: gpsResult.dist, accuracy: gpsResult.acc, fp
+      const { data: tokenData, error: tokenErr } = await db.rpc('create_checkin_token', {
+        p_fp: fp,
+        p_activity_id: activeActivity.id
       });
-      if (ciErr) throw ciErr;
-
-      // อัปเดต local state (DB อัปเดตโดย trigger แล้ว)
-      member = { ...member, events:(member.events||0)+1, points:(member.points||0)+pts };
+      if (tokenErr) {
+        const msg = tokenErr.message || '';
+        if (msg.includes('ALREADY_CHECKIN'))       showErr(errEl, '✅ คุณเช็คอินกิจกรรมนี้ไปแล้ว');
+        else if (msg.includes('ACTIVITY_ENDED'))   showErr(errEl, '⏰ กิจกรรมนี้หมดเวลาแล้ว');
+        else if (msg.includes('ACTIVITY_NOT_FOUND')) showErr(errEl, '❌ ไม่พบกิจกรรมหรือกิจกรรมปิดแล้ว');
+        else if (msg.includes('MEMBER_NOT_FOUND')) showErr(errEl, '❌ ไม่พบข้อมูลสมาชิก กรุณาลงทะเบียนใหม่');
+        else showErr(errEl, 'เกิดข้อผิดพลาด: ' + msg);
+        document.getElementById('ci-btn').disabled = false;
+        return;
+      }
+      hideLoader();
+      await showQR(tokenData, member);
     } else {
-      const checkins = lsGet('checkins')||[];
-      if (checkins.find(c=>c.activityId===activeActivity.id&&c.memberId===fp)) { showErr(errEl,'คุณเช็คอินแล้ว'); return; }
-      checkins.push({ id:'ci_'+Date.now(), memberId:fp, memberName:member.name, memberGameId:member.gameid, memberTeam:member.team, activityId:activeActivity.id, activityName:activeActivity.name, distance:gpsResult.dist, accuracy:gpsResult.acc, fp, timestamp:new Date().toISOString() });
-      lsSet('checkins', checkins);
-      const members = lsGet('members')||[];
-      const idx = members.findIndex(m=>m.fp===fp);
-      if (idx>=0) { members[idx].events=(members[idx].events||0)+1; members[idx].points=(members[idx].points||0)+pts; lsSet('members',members); member=members[idx]; }
+      showErr(errEl, '❌ ระบบ QR ต้องการการเชื่อมต่อ Supabase');
+      document.getElementById('ci-btn').disabled = false;
     }
-
-    currentMember = member;
-    // Show success
-    document.getElementById('succ-av').textContent = member.name.slice(0,2).toUpperCase();
-    document.getElementById('succ-av').className = 'avatar '+(TEAM_AV[member.team]||'av-mystic');
-    document.getElementById('succ-name').textContent = member.name;
-    document.getElementById('succ-gameid').textContent = member.gameid;
-    const st = document.getElementById('succ-team');
-    st.textContent = TEAM_LABEL[member.team]||''; st.className='badge '+(TEAM_BADGE[member.team]||'badge-blue');
-    document.getElementById('succ-events').textContent = member.events||1;
-    document.getElementById('succ-pts').textContent = member.points||pts;
-    document.getElementById('succ-time').textContent = new Date().toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'long'})+' น.';
-    document.getElementById('succ-dist').textContent = '✓ ยืนยันตำแหน่งแล้ว · ระยะ '+gpsResult.dist.toLocaleString()+' เมตร';
-    document.getElementById('succ-actname').textContent = '📍 '+activeActivity.name;
-    goScreen('success');
   } catch(e) {
-    if (e.code==='23505'||e.message?.includes('unique')) showErr(errEl,'คุณเช็คอินกิจกรรมนี้ไปแล้ว');
-    else showErr(errEl,'เกิดข้อผิดพลาด: '+e.message);
+    showErr(errEl, 'เกิดข้อผิดพลาด: ' + e.message);
     document.getElementById('ci-btn').disabled = false;
   } finally { hideLoader(); }
+}
+
+// ===== QR Check-in =====
+function clearQRTimers() {
+  if (_qrCountInterval) { clearInterval(_qrCountInterval); _qrCountInterval = null; }
+  if (_qrPollInterval)  { clearInterval(_qrPollInterval);  _qrPollInterval  = null; }
+}
+
+async function showQR(tokenData, member) {
+  document.getElementById('qr-act-title').textContent = '🎫 ' + (tokenData.activity_name || activeActivity?.name || 'เช็คอิน');
+  document.getElementById('qr-act-sub').textContent = 'แสดงให้แอดมินสแกน';
+  document.getElementById('qr-err').style.display = 'none';
+  const statusEl = document.getElementById('qr-status-msg');
+  statusEl.textContent = '⏳ รอแอดมินสแกน...';
+  statusEl.style.color = '#6b7280';
+  const cancelBtn = document.getElementById('qr-cancel-btn');
+  cancelBtn.textContent = '← ยกเลิก';
+  cancelBtn.onclick = cancelQR;
+
+  // สร้าง QR Code
+  const qrDiv = document.getElementById('qr-canvas');
+  qrDiv.innerHTML = '';
+  if (window.QRCode) {
+    new QRCode(qrDiv, {
+      text: tokenData.token,
+      width: 220, height: 220,
+      colorDark: '#111111', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } else {
+    qrDiv.innerHTML = '<div style="font-size:12px;color:#dc2626;padding:10px">ไม่สามารถสร้าง QR ได้</div>';
+  }
+
+  goScreen('qr-show');
+
+  // Countdown
+  const expiresAt = new Date(tokenData.expires_at).getTime();
+  function tick() {
+    const left = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+    document.getElementById('qr-countdown').textContent = left;
+    if (left <= 0) {
+      clearQRTimers();
+      statusEl.textContent = '⏰ QR หมดอายุแล้ว กรุณากลับไปกดเช็คอินใหม่';
+      statusEl.style.color = '#dc2626';
+      cancelBtn.textContent = '← กลับ';
+    }
+  }
+  tick();
+  _qrCountInterval = setInterval(tick, 1000);
+
+  // Poll ทุก 3 วินาที
+  _qrPollInterval = setInterval(async () => {
+    try {
+      const { data: st } = await db.rpc('check_token_status', { p_token: tokenData.token });
+      if (!st) return;
+      if (st.status === 'used') {
+        clearQRTimers();
+        statusEl.textContent = '✅ สแกนสำเร็จ! กำลังแสดงผล...';
+        statusEl.style.color = '#15803d';
+        cancelBtn.style.display = 'none';
+        await _showCheckinSuccess(member);
+      } else if (st.status === 'expired') {
+        clearQRTimers();
+        document.getElementById('qr-countdown').textContent = '0';
+        statusEl.textContent = '⏰ QR หมดอายุแล้ว กรุณากลับไปกดเช็คอินใหม่';
+        statusEl.style.color = '#dc2626';
+        cancelBtn.textContent = '← กลับ';
+      }
+    } catch(e) { console.warn('QR poll error', e); }
+  }, 3000);
+}
+
+function cancelQR() {
+  clearQRTimers();
+  document.getElementById('ci-btn').disabled = false;
+  goScreen('checkin');
+}
+
+async function _showCheckinSuccess(member) {
+  try {
+    if (IS_CONFIGURED && db) {
+      const { data } = await db.rpc('get_member_by_fp', { p_fp: getFingerprint() });
+      if (data) member = data;
+    }
+  } catch(e) {}
+  currentMember = member;
+
+  document.getElementById('succ-av').textContent = member.name.slice(0,2).toUpperCase();
+  document.getElementById('succ-av').className = 'avatar '+(TEAM_AV[member.team]||'av-mystic');
+  document.getElementById('succ-name').textContent = member.name;
+  document.getElementById('succ-gameid').textContent = member.gameid;
+  const st = document.getElementById('succ-team');
+  st.textContent = TEAM_LABEL[member.team]||''; st.className='badge '+(TEAM_BADGE[member.team]||'badge-blue');
+  document.getElementById('succ-events').textContent = member.events||1;
+  document.getElementById('succ-pts').textContent = member.points||0;
+  document.getElementById('succ-time').textContent = new Date().toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'long'})+' น.';
+  document.getElementById('succ-dist').textContent = '✓ แอดมินสแกน QR ยืนยันแล้ว · ระยะ '+(gpsResult?.dist||0).toLocaleString()+' เมตร';
+  document.getElementById('succ-actname').textContent = '📍 '+(activeActivity?.name||'');
+  goScreen('success');
 }
 
 function changeDevice() {

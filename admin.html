@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PGO Saraburi — Admin Panel</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -92,6 +93,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .empty{text-align:center;padding:28px;color:#9ca3af;font-size:13px}
 .hidden{display:none!important}
 .flex-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* QR Scanner */
+#qr-video-wrap{position:relative;width:100%;max-width:320px;margin:0 auto 14px;border-radius:14px;overflow:hidden;background:#000;line-height:0}
+#qr-video{width:100%;display:block;border-radius:14px}
+#qr-scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:180px;height:180px;border:3px solid #E8274B;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.45);pointer-events:none}
+#qr-scan-box::before,#qr-scan-box::after{content:'';position:absolute;width:24px;height:24px;border-color:#fff;border-style:solid}
+#qr-scan-box::before{top:-3px;left:-3px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+#qr-scan-box::after{bottom:-3px;right:-3px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
 </style>
 </head>
 <body>
@@ -148,6 +157,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="tab"        id="tab-members"    onclick="switchTab('members')">👥 สมาชิก</button>
     <button class="tab"        id="tab-activities" onclick="switchTab('activities')">🎯 กิจกรรม</button>
     <button class="tab"        id="tab-draw"       onclick="switchTab('draw')">🎁 สุ่มรางวัล</button>
+    <button class="tab"        id="tab-scan"       onclick="switchTab('scan')">📷 สแกน QR</button>
     <button class="tab hidden" id="tab-team"       onclick="switchTab('team')">🔐 ทีมงาน</button>
   </div>
 
@@ -327,6 +337,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
 
+  <!-- SCAN QR -->
+  <div class="tab-panel" id="panel-scan">
+    <div class="card">
+      <h2>📷 สแกน QR เช็คอิน</h2>
+      <div class="info-box" id="scan-info-msg">กด "เปิดกล้อง" แล้วให้สมาชิกแสดง QR Code ที่หน้าจอมือถือ</div>
+      <div id="qr-video-wrap" style="display:none">
+        <video id="qr-video" autoplay playsinline muted></video>
+        <div id="qr-scan-box"></div>
+      </div>
+      <canvas id="qr-canvas-scan" style="display:none"></canvas>
+      <div style="text-align:center;margin-bottom:14px">
+        <button class="btn btn-primary" id="scan-toggle-btn" onclick="toggleQRScanner()" style="max-width:220px;margin:0 auto">📷 เปิดกล้อง</button>
+      </div>
+      <div id="scan-result" style="display:none"></div>
+      <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">สแกนได้ทุก QR ที่ยังไม่หมดอายุ (ภายใน 90 วินาที หลังสมาชิกสร้าง)</p>
+    </div>
+  </div>
+
   <!-- TEAM (superadmin only) -->
   <div class="tab-panel hidden" id="panel-team">
     <div class="card">
@@ -461,13 +489,136 @@ function showToast(msg) {
 }
 
 async function doLogout() {
+  stopQRScanner();
   if (IS_CONFIGURED && db) await db.auth.signOut();
   currentUser=null; currentRole=null;
   hide('screen-main'); hide('screen-noaccess'); show('screen-login');
 }
 
+// ==================== QR Scanner ====================
+let _scanStream = null, _scanRaf = null, _scanCooldown = false, _lastScannedToken = '';
+
+function toggleQRScanner() {
+  if (_scanStream) stopQRScanner();
+  else startQRScanner();
+}
+
+async function startQRScanner() {
+  const infoEl = $('scan-info-msg');
+  const wrap   = $('qr-video-wrap');
+  const video  = $('qr-video');
+  const btn    = $('scan-toggle-btn');
+
+  infoEl.textContent = '⏳ กำลังเปิดกล้อง...';
+  infoEl.className   = 'info-box';
+
+  try {
+    _scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = _scanStream;
+    wrap.style.display = 'block';
+    btn.textContent  = '⏹ หยุดกล้อง';
+    btn.className    = 'btn btn-danger btn-sm';
+    infoEl.textContent = '📷 กำลังสแกน... ให้สมาชิกแสดง QR ที่หน้าจอ';
+    $('scan-result').style.display = 'none';
+    _lastScannedToken = '';
+    _scanCooldown = false;
+    video.onloadedmetadata = () => {
+      video.play();
+      _scanRaf = requestAnimationFrame(scanFrame);
+    };
+  } catch(e) {
+    infoEl.className   = 'err-box';
+    infoEl.textContent = '❌ ไม่สามารถเข้าถึงกล้อง: ' + (e.message || e.name);
+  }
+}
+
+function stopQRScanner() {
+  if (_scanRaf)    { cancelAnimationFrame(_scanRaf); _scanRaf = null; }
+  if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+  const wrap = $('qr-video-wrap');
+  const btn  = $('scan-toggle-btn');
+  const info = $('scan-info-msg');
+  if (wrap) wrap.style.display = 'none';
+  if (btn)  { btn.textContent = '📷 เปิดกล้อง'; btn.className = 'btn btn-primary'; }
+  if (info && info.classList.contains('info-box')) info.textContent = 'กด "เปิดกล้อง" แล้วให้สมาชิกแสดง QR Code ที่หน้าจอมือถือ';
+}
+
+function scanFrame() {
+  if (!_scanStream) return;
+  const video  = $('qr-video');
+  const canvas = $('qr-canvas-scan');
+  if (!video || !canvas || video.readyState < video.HAVE_ENOUGH_DATA) {
+    _scanRaf = requestAnimationFrame(scanFrame);
+    return;
+  }
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  if (window.jsQR) {
+    const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data && code.data !== _lastScannedToken && !_scanCooldown) {
+      _lastScannedToken = code.data;
+      _scanCooldown = true;
+      processScanToken(code.data);
+      return; // หยุดรอผล ก่อน resume
+    }
+  }
+  _scanRaf = requestAnimationFrame(scanFrame);
+}
+
+async function processScanToken(token) {
+  const resultEl = $('scan-result');
+  resultEl.style.display = 'block';
+  resultEl.className = 'info-box';
+  resultEl.innerHTML = '<span style="display:inline-block;width:16px;height:16px;border:2px solid #bfdbfe;border-top-color:#1d4ed8;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px"></span> กำลังตรวจสอบ QR...';
+
+  try {
+    const { data, error } = await db.rpc('scan_checkin_token', { p_token: token });
+    if (error) {
+      const msg = error.message || '';
+      let txt = '❌ เกิดข้อผิดพลาด: ' + msg;
+      if (msg.includes('TOKEN_INVALID'))   txt = '❌ QR Code ไม่ถูกต้อง (อาจเป็น QR อื่น)';
+      if (msg.includes('TOKEN_EXPIRED'))   txt = '⏰ QR Code หมดอายุแล้ว (ให้สมาชิกสร้างใหม่)';
+      if (msg.includes('TOKEN_USED'))      txt = '⚠️ QR Code นี้ถูกใช้ไปแล้ว';
+      if (msg.includes('ALREADY_CHECKIN')) txt = '⚠️ สมาชิกนี้เช็คอินแล้ว';
+      resultEl.className   = 'err-box';
+      resultEl.textContent = txt;
+      showToast(txt);
+    } else if (data && data.success) {
+      const teamIcon = { mystic:'💙', valor:'❤️', instinct:'💛' };
+      resultEl.className = '';
+      const box = document.createElement('div');
+      box.style.cssText = 'background:#dcfce7;border-radius:12px;padding:18px;text-align:center';
+      box.innerHTML = `
+        <div style="font-size:40px;margin-bottom:8px">✅</div>
+        <div style="font-size:18px;font-weight:800;color:#15803d;margin-bottom:6px">เช็คอินสำเร็จ!</div>
+        <div style="font-size:16px;font-weight:700;color:#111">${data.member_name}</div>
+        <div style="font-size:13px;color:#6b7280;margin:3px 0">${data.member_gameid} · ${teamIcon[data.member_team]||''} ${data.member_team||''}</div>
+        <div style="font-size:13px;color:#6b7280">📍 ${data.activity_name}</div>
+        <div style="font-size:14px;font-weight:800;color:#E8274B;margin-top:6px">+${data.pts_earned} แต้ม</div>`;
+      resultEl.innerHTML = '';
+      resultEl.appendChild(box);
+      showToast('✅ ' + data.member_name + ' เช็คอินสำเร็จ +' + data.pts_earned + ' แต้ม');
+    }
+  } catch(e) {
+    resultEl.className   = 'err-box';
+    resultEl.textContent = '❌ ' + e.message;
+  }
+
+  // Resume scan หลัง 3 วินาที
+  setTimeout(() => {
+    _scanCooldown = false;
+    _lastScannedToken = '';
+    if (_scanStream) _scanRaf = requestAnimationFrame(scanFrame);
+  }, 3000);
+}
+
 // ==================== Tabs ====================
 function switchTab(name) {
+  if (name !== 'scan') stopQRScanner(); // หยุดกล้องเมื่อออกจาก tab scan
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   $('tab-'+name).classList.add('active');
