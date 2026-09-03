@@ -512,23 +512,46 @@ async function startQRScanner() {
   infoEl.textContent = '⏳ กำลังเปิดกล้อง...';
   infoEl.className   = 'info-box';
 
+  // ลองหลาย constraint — กัน ultrawide และ browser เก่า
+  const tryList = [
+    { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { facingMode: 'environment',            width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { facingMode: 'environment' } },
+    { video: true }
+  ];
+
+  let stream = null;
+  for (const c of tryList) {
+    try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+    catch(e) { /* ลอง constraint ถัดไป */ }
+  }
+  if (!stream) {
+    infoEl.className   = 'err-box';
+    infoEl.textContent = '❌ ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตสิทธิ์กล้อง';
+    return;
+  }
+
   try {
-    _scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    video.srcObject = _scanStream;
+    _scanStream = stream;
+    video.srcObject = stream;
     wrap.style.display = 'block';
-    btn.textContent  = '⏹ หยุดกล้อง';
-    btn.className    = 'btn btn-danger btn-sm';
+    btn.textContent = '⏹ หยุดกล้อง';
+    btn.className   = 'btn btn-danger btn-sm';
     infoEl.textContent = '📷 กำลังสแกน... ให้สมาชิกแสดง QR ที่หน้าจอ';
     $('scan-result').style.display = 'none';
     _lastScannedToken = '';
     _scanCooldown = false;
-    video.onloadedmetadata = () => {
-      video.play();
-      _scanRaf = requestAnimationFrame(scanFrame);
-    };
+
+    // รอให้วิดีโอพร้อมจริงก่อนเริ่ม scan loop
+    await new Promise(resolve => {
+      if (video.readyState >= 2) { resolve(); return; }
+      video.addEventListener('canplay', resolve, { once: true });
+    });
+    await video.play().catch(() => {});
+    _scanRaf = requestAnimationFrame(scanFrame);
   } catch(e) {
     infoEl.className   = 'err-box';
-    infoEl.textContent = '❌ ไม่สามารถเข้าถึงกล้อง: ' + (e.message || e.name);
+    infoEl.textContent = '❌ ' + (e.message || e.name);
   }
 }
 
@@ -547,18 +570,26 @@ function scanFrame() {
   if (!_scanStream) return;
   const video  = $('qr-video');
   const canvas = $('qr-canvas-scan');
-  if (!video || !canvas || video.readyState < video.HAVE_ENOUGH_DATA) {
+  if (!video || !canvas || video.paused || video.videoWidth === 0) {
     _scanRaf = requestAnimationFrame(scanFrame);
     return;
   }
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
+  // วาดเฉพาะส่วนกลางของเฟรม (ช่วยแก้ปัญหา QR เล็กเกินใน wide FOV)
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const cropSize = Math.min(vw, vh) * 0.85; // ใช้ 85% ของมิติสั้น
+  const sx = (vw - cropSize) / 2;
+  const sy = (vh - cropSize) / 2;
+  const outSize = 400;
+  canvas.width  = outSize;
+  canvas.height = outSize;
   const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, outSize, outSize);
+  const imgData = ctx.getImageData(0, 0, outSize, outSize);
 
   if (window.jsQR) {
-    const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' });
+    const code = jsQR(imgData.data, imgData.width, imgData.height, {
+      inversionAttempts: 'attemptBoth'  // จับทั้ง dark-on-light และ light-on-dark
+    });
     if (code && code.data && code.data !== _lastScannedToken && !_scanCooldown) {
       _lastScannedToken = code.data;
       _scanCooldown = true;
