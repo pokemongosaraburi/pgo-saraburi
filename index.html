@@ -127,9 +127,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .foot{text-align:center;padding:16px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);margin-top:auto;background:#fff}
 .foot a{color:var(--red);text-decoration:none;font-weight:700}
 
-/* ═══ CONFIG WARNING ═══ */
-.config-warn{background:#fef9c3;border:1.5px solid #fde68a;border-radius:12px;padding:13px;margin-bottom:14px;font-size:12px;color:#854d0e;line-height:1.6}
-
 /* ═══ LEADERBOARD ═══ */
 .lb-podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:20px 8px 0}
 .lb-pod{display:flex;flex-direction:column;align-items:center;flex:1;max-width:120px}
@@ -167,11 +164,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .ach-diamond{background:linear-gradient(135deg,#f0f9ff,#e0f2fe);color:#0369a1;border:1.5px solid #7dd3fc}
 .ach-champion{background:linear-gradient(135deg,#fdf4ff,#fae8ff);color:#7e22ce;border:1.5px solid #d8b4fe}
 .ach-badge .ach-icon{font-size:13px}
-/* ═══ ANIMATIONS ═══ */
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes popIn{from{opacity:0;transform:scale(.72)}to{opacity:1;transform:scale(1)}}
 
-/* ═══ TABLET & DESKTOP ═══ */
+/* ═══ QR CODE CARD ═══ */
+.qr-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
+.qr-box{background:#fff;border-radius:24px;padding:24px;width:100%;max-width:340px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.3)}
+#qrcode{margin:16px auto;display:flex;justify-content:center}
+
 @media(min-width:768px){
   body{background:linear-gradient(145deg,#E8274B 0%,#a01428 45%,#150510 100%);align-items:center;min-height:100vh;padding:28px 16px}
   .app{border-radius:28px;min-height:auto;max-height:calc(100vh - 56px);overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.55);margin:0 auto}
@@ -186,6 +184,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 </head>
 <body>
 <div class="app">
+
 <div class="loading-overlay hidden" id="global-loader">
   <svg class="pokeball-spin" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <circle cx="50" cy="50" r="48" fill="white" stroke="#222" stroke-width="4"/>
@@ -237,286 +236,169 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       </div>
     </div>
     <button class="btn btn-primary" id="reg-btn" onclick="doRegister()">✅ ลงทะเบียน</button>
-    <div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">
-      <div style="flex:1;height:1px;background:#f0f0f0"></div>
-      <span style="font-size:11px;color:#9ca3af">หรือ</span>
-      <div style="flex:1;height:1px;background:#f0f0f0"></div>
+    <div style="text-align:center;margin-top:14px">
+      <a href="javascript:void(0)" onclick="goTo('login-pin')" style="font-size:12px;color:var(--red);text-decoration:none;font-weight:700">มีบัญชีแล้ว? เข้าสู่ระบบด้วย PIN</a>
     </div>
-    <button class="btn btn-secondary" onclick="signInWithGoogle('register')" style="gap:10px">
-      <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:18px;height:18px"> ลงทะเบียนด้วย Gmail
-    </button>
-    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px;line-height:1.5">ข้อมูลจะถูกผูกกับอุปกรณ์นี้<br>เพื่อป้องกันการกรอกข้อมูลแทนกัน</p>
-    <button class="btn btn-secondary mt-8" onclick="goScreen('login')">← กลับ</button>
   </div>
-  <div class="foot">&nbsp;</div>
 </div>
 
-<!-- LOGIN -->
-<div class="screen" id="login">
+<!-- LOGIN WITH PIN -->
+<div class="screen" id="login-pin">
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:10px">
-      <img src="logo.png" alt="logo" style="width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,0.4)">
-      <div>
-        <h1>PGO Saraburi</h1>
-        <p>ระบบจัดการกิจกรรม Pokemon GO</p>
-      </div>
-    </div>
+    <h1>🔐 เข้าสู่ระบบด้วย PIN</h1>
+    <p>สำหรับสมาชิกที่เคยลงทะเบียนแล้ว</p>
   </div>
   <div class="content">
-    <div class="err-box" id="login-err" style="display:none"></div>
+    <div class="err-box" id="login-pin-err" style="display:none"></div>
     <div class="form-group">
-      <label class="form-label">Trainer Name (ชื่อในเกม)</label>
-      <input class="form-input" id="login-gameid" type="text" placeholder="เช่น TrainerBoss99" maxlength="20" autocomplete="off">
+      <label class="form-label">Trainer Name</label>
+      <input class="form-input" id="lp-gameid" type="text" placeholder="ชื่อในเกม" autocomplete="off">
     </div>
     <div class="form-group">
-      <label class="form-label">รหัส PIN 6 หลัก 🔐</label>
-      <input class="form-input" id="login-pin" type="password" inputmode="numeric" placeholder="••••••" maxlength="6" autocomplete="current-password">
+      <label class="form-label">รหัส PIN 6 หลัก</label>
+      <input class="form-input" id="lp-pin" type="password" inputmode="numeric" placeholder="••••••" maxlength="6" autocomplete="current-password">
     </div>
-    <button class="btn btn-primary" id="login-btn" onclick="doLogin()">🔑 เข้าสู่ระบบ</button>
-    <div style="text-align:center;margin-top:12px">
-      <button onclick="goScreen('forgot-pin')" style="background:none;border:none;font-size:13px;color:var(--red);cursor:pointer;text-decoration:underline">🔓 ลืม PIN?</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:8px;margin:18px 0 4px">
-      <div style="flex:1;height:1px;background:#f0f0f0"></div>
-      <span style="font-size:11px;color:#9ca3af">หรือ</span>
-      <div style="flex:1;height:1px;background:#f0f0f0"></div>
-    </div>
-    <button class="btn btn-secondary" onclick="signInWithGoogle('login')" style="gap:10px">
-      <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:18px;height:18px"> เข้าสู่ระบบด้วย Gmail
-    </button>
-    <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0">
-      <p style="font-size:13px;color:#6b7280;margin-bottom:8px">ยังไม่มีบัญชี?</p>
-      <button class="btn btn-secondary" onclick="goScreen('register')" style="width:auto;padding:8px 24px">📝 ลงทะเบียนสมาชิกใหม่</button>
-    </div>
+    <button class="btn btn-primary" onclick="doLoginWithPin()">เข้าสู่ระบบ</button>
+    <button class="btn btn-secondary mt-8" onclick="goTo('register')">ย้อนกลับ</button>
   </div>
-  <div class="foot">&nbsp;</div>
 </div>
 
-<!-- HOME -->
+<!-- HOME / ACTIVITIES -->
 <div class="screen" id="home">
   <div class="topbar">
-    <div style="display:flex;align-items:center;gap:10px">
-      <img src="logo.png" alt="logo" style="width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,0.4)">
+    <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
-        <h1>PGO Saraburi</h1>
-        <p id="home-sub">กิจกรรมวันนี้</p>
+        <h1 id="home-greeting">ยินดีต้อนรับ</h1>
+        <p id="home-sub">PGO Saraburi</p>
       </div>
+      <button onclick="goTo('leaderboard')" style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:6px 12px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer">🏆 อันดับ</button>
     </div>
   </div>
   <div class="content">
-    <div class="card" id="home-card">
+    <!-- User Card -->
+    <div class="card">
       <div class="user-row">
-        <div class="avatar" id="home-av"></div>
+        <div class="avatar" id="u-avatar">?</div>
         <div style="flex:1">
-          <div style="font-size:15px;font-weight:700;color:#111" id="home-name"></div>
-          <div style="font-size:12px;color:#6b7280;margin:2px 0" id="home-gameid"></div>
-          <span class="badge" id="home-team-badge"></span>
-          <span id="home-ach-badge" style="display:none"></span>
+          <div style="font-size:16px;font-weight:800" id="u-name">—</div>
+          <div style="font-size:12px;color:var(--muted)" id="u-gameid">—</div>
+          <div id="u-badge-wrap"></div>
         </div>
-        <button onclick="goScreen('register')" style="background:none;border:none;font-size:11px;color:#9ca3af;cursor:pointer">แก้ไข</button>
       </div>
       <div class="pts-row">
-        <div class="pts-box"><div class="pts-num" id="home-events">0</div><div class="pts-label">กิจกรรม</div></div>
-        <div class="pts-box"><div class="pts-num" style="color:var(--red)" id="home-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
-        <div class="pts-box"><div class="pts-num" id="home-rank">#-</div><div class="pts-label">อันดับ</div></div>
-      </div>
-      <div id="gmail-link-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6">
-        <div id="gmail-linked" style="display:none;font-size:12px;color:#15803d">
-          <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:14px;height:14px;vertical-align:middle"> ✅ Gmail: <span id="gmail-email"></span>
-        </div>
-        <button id="gmail-link-btn" onclick="signInWithGoogle('link')" class="btn btn-secondary" style="padding:8px 14px;font-size:12px;gap:8px;display:flex;margin-top:0">
-          <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:14px;height:14px"> เชื่อม Gmail เพื่อ login ข้ามอุปกรณ์
-        </button>
+        <div class="pts-box"><div class="pts-num" id="u-events">0</div><div class="pts-label">กิจกรรม</div></div>
+        <div class="pts-box"><div class="pts-num" style="color:var(--red)" id="u-points">0</div><div class="pts-label">แต้มสะสม</div></div>
+        <div class="pts-box"><div class="pts-num" id="u-rank">#-</div><div class="pts-label">อันดับกลุ่ม</div></div>
       </div>
     </div>
+
+    <!-- Active Activities -->
     <div class="sec-label">กิจกรรมที่เปิดอยู่</div>
-    <div id="activity-list"></div>
-  </div>
-  <div class="foot" style="display:flex;align-items:center;justify-content:space-around;padding:12px 8px">
-    <a href="#" onclick="loadLeaderboard();goScreen('leaderboard')" style="color:var(--red);text-decoration:none;font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">🏆</span>Leaderboard</a>
-    <a href="#" onclick="loadHistory();goScreen('history')" style="color:var(--muted);text-decoration:none;font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">📋</span>ประวัติ</a>
-    <a href="#" onclick="doLogout()" style="color:var(--muted);text-decoration:none;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">🚪</span>ออกจากระบบ</a>
+    <div id="activities-list"></div>
   </div>
 </div>
 
-<!-- QR SHOW -->
-<div class="screen" id="qr-show">
+<!-- GPS CHECKIN SCREEN -->
+<div class="screen" id="checkin-gps">
   <div class="topbar">
-    <h1 id="qr-act-title">🎫 แสดง QR Code</h1>
-    <p id="qr-act-sub">ให้แอดมินสแกน</p>
-  </div>
-  <div class="content" style="display:flex;flex-direction:column;align-items:center;padding-top:20px">
-    <p style="font-size:13px;color:var(--muted);margin-bottom:18px;text-align:center">แสดง QR Code นี้ให้แอดมินสแกน</p>
-    <div id="qr-canvas" style="padding:18px;background:#fff;border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,0.14);margin-bottom:24px;display:inline-block"></div>
-    <div style="text-align:center;margin-bottom:6px">
-      <div id="qr-countdown" style="font-size:52px;font-weight:900;color:var(--red);line-height:1;letter-spacing:-2px">90</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">วินาที ก่อนหมดอายุ</div>
-    </div>
-    <div id="qr-status-msg" style="font-size:14px;color:var(--muted);margin:18px 0;text-align:center;font-weight:500">⏳ รอแอดมินสแกน...</div>
-    <div class="err-box" id="qr-err" style="display:none;width:100%"></div>
-    <button class="btn btn-secondary" id="qr-cancel-btn" onclick="cancelQR()">← ยกเลิก</button>
-    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.7">QR จะหมดอายุใน 90 วินาที<br>หากหมดอายุ กลับไปกดเช็คอินใหม่</p>
-  </div>
-</div>
-
-<!-- CHECKIN -->
-<div class="screen" id="checkin">
-  <div class="topbar">
-    <h1 id="ci-title">📍 เช็คอิน</h1>
-    <p id="ci-sub">ตรวจสอบตำแหน่ง GPS</p>
+    <h1>📍 เช็คอินกิจกรรม</h1>
+    <p id="gps-act-name">กำลังตรวจสอบ...</p>
   </div>
   <div class="content">
     <div class="gps-wrap">
-      <div class="gps-ring checking" id="gps-ring"><span class="gps-icon" id="gps-icon">📍</span></div>
-      <div class="gps-title" id="gps-title">กำลังตรวจสอบตำแหน่ง...</div>
-      <div class="gps-detail" id="gps-detail">โปรดอนุญาตการเข้าถึงตำแหน่ง GPS</div>
-      <span class="badge" id="gps-dist-badge" style="display:none"></span>
+      <div class="gps-ring checking" id="gps-ring">
+        <span class="gps-icon">📡</span>
+      </div>
+      <div class="gps-title" id="gps-status-title">กำลังค้นหาตำแหน่ง GPS...</div>
+      <div class="gps-detail" id="gps-status-desc">กรุณาอนุญาตสิทธิ์เข้าถึงตำแหน่งที่ตั้ง และรอสักครู่</div>
+      <button class="btn btn-primary" id="gps-action-btn" style="display:none" onclick="triggerGpsCheckin()">ยืนยันการเช็คอิน</button>
+      <button class="btn btn-secondary mt-8" onclick="goTo('home')">ย้อนกลับ</button>
     </div>
-    <div class="err-box" id="ci-err" style="display:none"></div>
-    <button class="btn btn-primary" id="ci-btn" onclick="doCheckin()" disabled>📍 เช็คอินเข้าร่วมกิจกรรม</button>
-    <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
-    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">1 อุปกรณ์ = 1 การเช็คอิน ต่อกิจกรรม</p>
   </div>
 </div>
 
-<!-- SUCCESS -->
-<div class="screen" id="success">
-  <div class="content success-wrap">
-    <div class="success-icon-big">✅</div>
-    <div style="font-size:23px;font-weight:800;margin-bottom:4px;color:#111">เช็คอินสำเร็จ!</div>
-    <div style="font-size:13px;color:#6b7280;margin-bottom:20px" id="succ-time"></div>
-    <div class="card" style="width:100%;text-align:left">
-      <div class="user-row" style="margin-bottom:10px">
-        <div class="avatar" id="succ-av"></div>
-        <div style="flex:1">
-          <div style="font-size:15px;font-weight:700" id="succ-name"></div>
-          <div style="font-size:12px;color:#6b7280" id="succ-gameid"></div>
-        </div>
-        <span class="badge" id="succ-team"></span>
-      </div>
-      <div class="pts-row" style="margin-bottom:10px">
-        <div class="pts-box"><div class="pts-num" id="succ-events">0</div><div class="pts-label">กิจกรรม</div></div>
-        <div class="pts-box"><div class="pts-num" style="color:var(--red)" id="succ-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
-      </div>
-      <div class="distance-info" id="succ-dist"></div>
-    </div>
-    <div style="font-size:13px;color:#6b7280;margin:12px 0" id="succ-actname"></div>
-    <button class="btn btn-primary" onclick="goScreen('home')">🏠 กลับหน้าหลัก</button>
-  </div>
-</div>
-
-<!-- SUSPENDED -->
-<div class="screen" id="suspended">
-  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;gap:16px">
-    <div style="font-size:72px">⛔</div>
-    <h2 style="font-size:22px;font-weight:900;color:#dc2626">บัญชีถูกระงับชั่วคราว</h2>
-    <p style="color:#6b7280;font-size:14px;line-height:1.6">บัญชีของคุณถูกระงับการใช้งาน<br>จนถึง <strong id="suspend-until" style="color:#dc2626"></strong><br><br>กรุณาติดต่อ Admin เพื่อสอบถามข้อมูล</p>
-    <button class="btn btn-secondary" style="margin-top:8px" onclick="localStorage.setItem('pgo_logged_out','1');goScreen('login')">ออกจากระบบ</button>
-  </div>
-</div>
-
-<!-- FORGOT PIN -->
-<div class="screen" id="forgot-pin">
-  <div class="topbar">
-    <h1>🔓 ลืม PIN</h1>
-    <p>ส่งคำขอให้ Admin รีเซ็ต PIN</p>
-  </div>
-  <div class="content">
-    <div class="card">
-      <div id="fp-result" style="display:none;margin-bottom:12px"></div>
-      <div class="form-group">
-        <label class="form-label">Trainer Name (ชื่อในเกม)</label>
-        <input class="form-input" id="fp-gameid" type="text" placeholder="เช่น TrainerBoss99" maxlength="20" autocomplete="off">
-      </div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5">Admin จะได้รับการแจ้งเตือน และติดต่อเพื่อรีเซ็ต PIN ให้คุณ</p>
-      <button class="btn btn-primary" id="fp-btn" onclick="requestPinReset()">📨 ส่งคำขอ Reset PIN</button>
-      <div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">
-        <div style="flex:1;height:1px;background:#f0f0f0"></div>
-        <span style="font-size:11px;color:#9ca3af">หรือ ถ้ามี Gmail ผูกไว้</span>
-        <div style="flex:1;height:1px;background:#f0f0f0"></div>
-      </div>
-      <button class="btn btn-secondary" onclick="signInWithGoogle('reset_pin')" style="gap:10px">
-        <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:18px;height:18px"> ยืนยันตัวตนผ่าน Gmail + ตั้ง PIN ใหม่
-      </button>
-    </div>
-    <button class="btn btn-secondary mt-8" onclick="goScreen('login')">← กลับ</button>
-  </div>
-  <div class="foot">&nbsp;</div>
-</div>
-
-<!-- HISTORY -->
-<div class="screen" id="history">
-  <div class="topbar"><h1>📋 ประวัติเช็คอิน</h1><p id="hist-sub">กิจกรรมที่เคยเข้าร่วม</p></div>
-  <div class="content">
-    <div class="card" style="padding:0;overflow:hidden" id="hist-list-wrap">
-      <div id="hist-list" style="padding:20px;text-align:center;color:var(--muted)">กำลังโหลด...</div>
-    </div>
-    <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
+<!-- SUCCESS SCREEN -->
+<div class="screen" id="checkin-success">
+  <div class="success-wrap">
+    <div class="success-icon-big">🎉</div>
+    <h2 style="font-size:22px;font-weight:900;color:#15803d;margin-bottom:6px">เช็คอินสำเร็จ!</h2>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:14px" id="succ-msg">ยินดีด้วย คุณได้รับแต้มกิจกรรมแล้ว</p>
+    <div class="distance-info" id="succ-dist">ระยะห่าง: - เมตร</div>
+    <button class="btn btn-primary mt-8" style="max-width:240px;margin:24px auto 0" onclick="goTo('home')">กลับหน้าหลัก</button>
   </div>
 </div>
 
 <!-- LEADERBOARD -->
 <div class="screen" id="leaderboard">
   <div class="topbar">
-    <h1>🏆 Leaderboard</h1>
-    <p id="lb-sub">อันดับแต้มสะสม</p>
+    <h1>🏆 อันดับสมาชิก</h1>
+    <p>ผู้มีส่วนร่วมสูงสุดในกลุ่ม PGO Saraburi</p>
   </div>
   <div class="content">
     <div class="lb-filter">
-      <div class="lb-ftab active" id="lbf-all"      onclick="lbFilter('all')">🌐 ทั้งหมด</div>
-      <div class="lb-ftab"       id="lbf-mystic"    onclick="lbFilter('mystic')">💙 Mystic</div>
-      <div class="lb-ftab"       id="lbf-valor"     onclick="lbFilter('valor')">❤️ Valor</div>
-      <div class="lb-ftab"       id="lbf-instinct"  onclick="lbFilter('instinct')">💛 Instinct</div>
+      <div class="lb-ftab active" onclick="filterLb('',this)">ทั้งหมด</div>
+      <div class="lb-ftab" onclick="filterLb('mystic',this)">💙 Mystic</div>
+      <div class="lb-ftab" onclick="filterLb('valor',this)">❤️ Valor</div>
+      <div class="lb-ftab" onclick="filterLb('instinct',this)">💛 Instinct</div>
     </div>
-    <!-- Podium top 3 -->
-    <div class="card" style="padding-bottom:0;overflow:hidden">
-      <div class="lb-podium" id="lb-podium"></div>
-    </div>
-    <!-- Full list -->
-    <div class="card" style="padding:0;overflow:hidden" id="lb-list-card">
-      <div id="lb-list"></div>
-    </div>
-    <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
+    <div id="lb-podium-wrap"></div>
+    <div class="card lb-list" id="lb-list-wrap"></div>
+    <button class="btn btn-secondary mt-8" onclick="goTo('home')">← ย้อนกลับ</button>
+  </div>
+</div>
+
+<!-- QR MODAL (ONE-TIME TOKEN) -->
+<div class="qr-modal" id="qr-modal" style="display:none">
+  <div class="qr-box">
+    <h3 style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:4px">QR Code เช็คอิน</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">แสดงหน้าจอนี้ให้แอดมินสแกนหน้างาน</p>
+    <div id="qrcode"></div>
+    <div style="font-size:13px;font-weight:700;color:var(--red);margin:10px 0" id="qr-timer">หมดอายุใน 90 วิ</div>
+    <button class="btn btn-secondary mt-8" onclick="closeQrModal()">ปิด</button>
   </div>
 </div>
 
 </div><!-- .app -->
+
 <script>
 // =====================================================
-// SUPABASE CONFIG — แก้ไข 2 บรรทัดนี้
-// หาค่าได้ที่: Supabase Dashboard → Settings → API
+// SUPABASE CONFIG
 // =====================================================
 const SUPABASE_URL      = 'https://mywgmpeirhuzeglzofso.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable__g2KWcUU1hOY8hpvE3EupQ_81szTRiy';
-// =====================================================
 
 const IS_CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT');
-
 let db = null;
 if (IS_CONFIGURED) {
   const { createClient } = window.supabase;
   db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-// ===== Helpers =====
-const TEAM_LABEL = { mystic:'💙 Mystic', valor:'❤️ Valor', instinct:'💛 Instinct' };
-const TEAM_BADGE = { mystic:'badge-blue', valor:'badge-red', instinct:'badge-warn' };
-const TEAM_AV    = { mystic:'av-mystic', valor:'av-valor', instinct:'av-instinct' };
-const TYPE_ICON  = { draw:'🎁', points:'⭐', pvp:'⚔️', checkin:'📍' };
+const BADGES = [
+  { min:50, cls:'ach-champion', icon:'👑', label:'Champion' },
+  { min:30, cls:'ach-diamond',  icon:'💎', label:'Diamond'  },
+  { min:15, cls:'ach-gold',     icon:'🥇', label:'Gold'     },
+  { min:7,  cls:'ach-silver',   icon:'🥈', label:'Silver'   },
+  { min:3,  cls:'ach-bronze',   icon:'🥉', label:'Bronze'   },
+  { min:1,  cls:'ach-newcomer', icon:'🌱', label:'Newcomer' },
+];
+function getBadge(events) { return BADGES.find(b=>(events||0)>=b.min)||null; }
 
-function lsGet(k)    { try { return JSON.parse(localStorage.getItem('pgo_'+k)); } catch(e) { return null; } }
-function lsSet(k, v) { localStorage.setItem('pgo_'+k, JSON.stringify(v)); }
-function lsDel(k)    { localStorage.removeItem('pgo_'+k); }
+let currentMember = null;
+let activeActivities = [];
+let selectedActivity = null;
+let currentGpsPos = null;
+let qrPollTimer = null;
+let qrExpireTimer = null;
 
-function showLoader(text) {
-  document.getElementById('global-loader').classList.remove('hidden');
-  document.getElementById('loader-text').textContent = text || 'กำลังโหลด...';
+function $(id) { return document.getElementById(id); }
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(screenId).classList.add('active');
+  if (screenId === 'home') loadHome();
+  if (screenId === 'leaderboard') loadLeaderboard();
 }
-function hideLoader() { document.getElementById('global-loader').classList.add('hidden'); }
 
-function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
-
-// ===== Device Fingerprint =====
 function getFingerprint() {
   const parts = [navigator.userAgent, screen.width+'x'+screen.height+'x'+screen.colorDepth,
     Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language,
@@ -526,7 +408,11 @@ function getFingerprint() {
   return 'fp_' + (h >>> 0).toString(36);
 }
 
-// ===== Geo =====
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000, toRad = x => x*Math.PI/180;
   const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
@@ -534,987 +420,376 @@ function haversine(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-// ===== State =====
+// ── Register & Login ──────────────────────────────────────────
 let selectedTeam = '';
-let activeActivity = null;
-let gpsResult = null;
-let currentMember = null;
-let _qrCountInterval = null, _qrPollInterval = null;
-
-// ===== Navigation =====
-function goScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  window.scrollTo(0,0);
-}
-
-// ===== Register =====
-function pickTeam(team, el) {
-  selectedTeam = team;
-  document.querySelectorAll('.team-opt').forEach(t => t.classList.remove('selected'));
+function pickTeam(t, el) {
+  selectedTeam = t;
+  document.querySelectorAll('.team-opt').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
 }
 
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
 async function doRegister() {
-  const name   = document.getElementById('reg-name').value.trim();
-  const gameid = document.getElementById('reg-gameid').value.trim();
-  const pin    = document.getElementById('reg-pin').value.trim();
-  const pin2   = document.getElementById('reg-pin2').value.trim();
-  const errEl  = document.getElementById('reg-err');
+  const name   = $('reg-name').value.trim();
+  const gameid = $('reg-gameid').value.trim();
+  const pin    = $('reg-pin').value;
+  const pin2   = $('reg-pin2').value;
+  const errEl  = $('reg-err');
   errEl.style.display = 'none';
 
-  if (!name)             { showErr(errEl,'กรุณากรอกชื่อ / ชื่อเล่น'); return; }
-  if (!gameid)           { showErr(errEl,'กรุณากรอก Trainer Name'); return; }
-  if (gameid.length < 3) { showErr(errEl,'Trainer Name ต้องมีอย่างน้อย 3 ตัวอักษร'); return; }
-  if (!selectedTeam)     { showErr(errEl,'กรุณาเลือกสีทีม'); return; }
-  if (!/^\d{6}$/.test(pin))  { showErr(errEl,'PIN ต้องเป็นตัวเลข 6 หลัก'); return; }
-  if (pin !== pin2)          { showErr(errEl,'PIN ทั้งสองครั้งไม่ตรงกัน'); return; }
-
-  const fp = getFingerprint();
-  const pinHash = await sha256(pin);
-  document.getElementById('reg-btn').disabled = true;
-  showLoader('กำลังลงทะเบียน...');
-
-  try {
-    if (IS_CONFIGURED && db) {
-      const { data, error } = await db.rpc('register_member_pin', {
-        p_name: name, p_gameid: gameid, p_pin_hash: pinHash, p_team: selectedTeam, p_fp: fp
-      });
-      if (error) {
-        if (error.message && error.message.includes('GAMEID_TAKEN')) {
-          showErr(errEl,'⚠️ Trainer Name นี้ถูกลงทะเบียนจากอุปกรณ์อื่นแล้ว');
-        } else { throw error; }
-        return;
-      }
-      currentMember = data;
-      lsSet('member_fp', fp);
-      localStorage.removeItem('pgo_logged_out');
-    } else {
-      const members = lsGet('members') || [];
-      const same = members.find(m => m.gameid.toLowerCase()===gameid.toLowerCase() && m.fp!==fp);
-      if (same) { showErr(errEl,'⚠️ Trainer Name นี้ถูกลงทะเบียนจากอุปกรณ์อื่นแล้ว'); return; }
-      const idx = members.findIndex(m => m.fp===fp);
-      const member = idx>=0 ? Object.assign(members[idx],{name,gameid,pin_hash:pinHash,team:selectedTeam}) : {id:'m_'+Date.now(),name,gameid,pin_hash:pinHash,team:selectedTeam,fp,events:0,points:0,registered_at:new Date().toISOString()};
-      if (idx<0) members.push(member); else members[idx]=member;
-      lsSet('members', members);
-      currentMember = member;
-      lsSet('member_fp', fp);
-    }
-    // เชื่อม Gmail อัตโนมัติถ้าสมัครหลัง Google OAuth
-    const pendingEmail = localStorage.getItem('google_email_pending');
-    if (pendingEmail && IS_CONFIGURED && db && currentMember?.id) {
-      localStorage.removeItem('google_email_pending');
-      const { data: linkResult } = await db.rpc('link_google_to_member', {
-        p_member_id: currentMember.id, p_email: pendingEmail
-      });
-      if (linkResult?.ok) currentMember.email = pendingEmail;
-    }
-    await renderHome();
-    goScreen('home');
-  } catch(e) {
-    showErr(errEl, 'เกิดข้อผิดพลาด: ' + e.message);
-  } finally {
-    hideLoader();
-    document.getElementById('reg-btn').disabled = false;
+  if (!name || !gameid || !selectedTeam) {
+    errEl.textContent = 'กรุณากรอกข้อมูลให้ครบทุกช่องและเลือกทีม';
+    errEl.style.display = 'block'; return;
   }
-}
-
-// ===== Login (existing member, new device) =====
-async function doLogin() {
-  const gameid = document.getElementById('login-gameid').value.trim();
-  const pin    = document.getElementById('login-pin').value.trim();
-  const errEl  = document.getElementById('login-err');
-  errEl.style.display='none';
-  if (!gameid)            { showErr(errEl,'กรุณากรอก Trainer Name'); return; }
-  if (!/^\d{6}$/.test(pin)) { showErr(errEl,'กรุณากรอก PIN 6 หลัก'); return; }
-
-  const fp = getFingerprint();
-  const pinHash = await sha256(pin);
-  document.getElementById('login-btn').disabled=true;
-  showLoader('กำลังตรวจสอบ...');
-  try {
-    if (IS_CONFIGURED && db) {
-      const { data: member, error } = await db.rpc('login_with_pin', {
-        p_gameid: gameid, p_pin_hash: pinHash, p_fp: fp
-      });
-      if (error || !member) {
-        showErr(errEl,'❌ Trainer Name หรือ PIN ไม่ถูกต้อง');
-        return;
-      }
-      currentMember = member;
-      lsSet('member_fp', fp);
-    } else {
-      const members = lsGet('members')||[];
-      const member = members.find(m=>m.gameid.toLowerCase()===gameid.toLowerCase());
-      if (!member) { showErr(errEl,'❌ ไม่พบ Trainer Name นี้ในระบบ'); return; }
-      if (member.pin_hash && member.pin_hash !== pinHash) { showErr(errEl,'❌ PIN ไม่ถูกต้อง'); return; }
-      member.fp = fp;
-      lsSet('members', members);
-      currentMember = member;
-      lsSet('member_fp', fp);
-    }
-    localStorage.removeItem('pgo_logged_out');
-    document.getElementById('login-gameid').value='';
-    document.getElementById('login-pin').value='';
-    if (checkSuspended(currentMember)) return;
-    await renderHome();
-    applyDeepLink(null);
-  } catch(e) {
-    showErr(errEl,'เกิดข้อผิดพลาด: '+e.message);
-  } finally {
-    hideLoader();
-    document.getElementById('login-btn').disabled=false;
+  if (!/^\d{6}$/.test(pin)) {
+    errEl.textContent = 'รหัส PIN ต้องเป็นตัวเลข 6 หลัก';
+    errEl.style.display = 'block'; return;
   }
-}
+  if (pin !== pin2) {
+    errEl.textContent = 'รหัส PIN ทั้ง 2 ช่องไม่ตรงกัน';
+    errEl.style.display = 'block'; return;
+  }
 
-// ===== ลืม PIN =====
-async function requestPinReset() {
-  const gameid = document.getElementById('fp-gameid').value.trim();
-  const resEl  = document.getElementById('fp-result');
-  resEl.style.display='none';
-  if (!gameid) { resEl.innerHTML='<div class="err-box">กรุณากรอก Trainer Name</div>'; resEl.style.display='block'; return; }
-  document.getElementById('fp-btn').disabled=true;
+  $('reg-btn').disabled = true;
+  $('reg-btn').textContent = 'กำลังลงทะเบียน...';
+
   try {
-    const { data, error } = await db.rpc('request_pin_reset', { p_gameid: gameid });
+    const fp = getFingerprint();
+    const pinHash = await sha256(pin);
+
+    const { data, error } = await db.from('members').insert({
+      name, gameid, team: selectedTeam, fp, pin_hash: pinHash, points: 0, events: 0
+    }).select().single();
+
     if (error) throw error;
-    resEl.innerHTML = data?.ok
-      ? `<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;color:#15803d;padding:12px 14px;border-radius:12px;font-size:13px">✅ ${data.message}</div>`
-      : `<div class="err-box">❌ ${data?.message}</div>`;
-    resEl.style.display='block';
-    document.getElementById('fp-gameid').value='';
+    currentMember = data;
+    localStorage.setItem('pgo_member_id', data.id);
+    goTo('home');
   } catch(e) {
-    resEl.innerHTML=`<div class="err-box">เกิดข้อผิดพลาด: ${e.message}</div>`;
-    resEl.style.display='block';
+    errEl.textContent = e.message.includes('gameid') ? 'Trainer Name นี้ถูกใช้งานแล้ว' : e.message;
+    errEl.style.display = 'block';
   } finally {
-    document.getElementById('fp-btn').disabled=false;
+    $('reg-btn').disabled = false;
+    $('reg-btn').textContent = '✅ ลงทะเบียน';
   }
 }
 
-// ===== Suspend Check =====
-function checkSuspended(member) {
-  if (!member?.suspended_until) return false;
-  const until = new Date(member.suspended_until);
-  if (until <= new Date()) return false;
-  const untilStr = until.toLocaleString('th-TH', {
-    timeZone: 'Asia/Bangkok', day:'2-digit', month:'2-digit',
-    year:'numeric', hour:'2-digit', minute:'2-digit'
-  });
-  const el = document.getElementById('suspend-until');
-  if (el) el.textContent = untilStr;
-  goScreen('suspended');
-  return true;
-}
-
-// ===== Gmail OAuth =====
-async function signInWithGoogle(intent) {
-  if (!IS_CONFIGURED || !db) { alert('ระบบยังไม่ได้ตั้งค่า Supabase'); return; }
-  localStorage.setItem('oauth_intent', intent);
-  // เก็บ member_id ไว้ถ้าเป็น intent 'link'
-  if (intent === 'link' && currentMember) {
-    localStorage.setItem('oauth_member_id', currentMember.id);
-  }
-  await db.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin + window.location.pathname,
-      scopes: 'email profile'
-    }
-  });
-}
-
-async function handleGoogleCallback() {
-  if (!IS_CONFIGURED || !db) return false;
-  const { data: { session } } = await db.auth.getSession();
-  if (!session || session.user?.app_metadata?.provider !== 'google') return false;
-
-  const intent  = localStorage.getItem('oauth_intent');
-  const email   = session.user.email;
-  const name    = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
-  const fp      = getFingerprint();
-  localStorage.removeItem('oauth_intent');
-
-  if (intent === 'login' || intent === 'register') {
-    showLoader('กำลังตรวจสอบ...');
-    try {
-      const { data: member } = await db.rpc('login_with_google', { p_email: email, p_fp: fp });
-      if (member) {
-        // สมาชิกเจอแล้ว → login
-        currentMember = member;
-        lsSet('member_fp', fp);
-        localStorage.removeItem('pgo_logged_out');
-        await renderHome();
-        goScreen('home');
-      } else {
-        // สมาชิกยังไม่มี → ไปหน้า register พร้อม pre-fill
-        document.getElementById('reg-name').value = name;
-        document.getElementById('reg-gameid').value = '';
-        // เก็บ email ไว้ใช้ตอน register สำเร็จ
-        localStorage.setItem('google_email_pending', email);
-        goScreen('register');
-        hideLoader();
-        // แจ้งให้รู้ว่า Gmail พร้อมแล้ว
-        const errEl = document.getElementById('reg-err');
-        errEl.style.display = 'block';
-        errEl.style.background = '#f0fdf4';
-        errEl.style.borderColor = '#bbf7d0';
-        errEl.style.color = '#15803d';
-        errEl.textContent = `✅ Gmail: ${email} — กรอกข้อมูลให้ครบแล้วลงทะเบียน`;
-      }
-    } catch(e) { hideLoader(); }
-    return true;
-  }
-
-  if (intent === 'link') {
-    const memberId = localStorage.getItem('oauth_member_id') || currentMember?.id;
-    localStorage.removeItem('oauth_member_id');
-    if (!memberId) { goScreen('login'); return true; }
-    showLoader('กำลังเชื่อม Gmail...');
-    const { data } = await db.rpc('link_google_to_member', { p_member_id: memberId, p_email: email });
-    hideLoader();
-    if (data?.ok) {
-      if (currentMember) currentMember.email = email;
-      await renderHome();
-      goScreen('home');
-    } else {
-      alert(data?.message || 'เชื่อม Gmail ไม่สำเร็จ');
-      goScreen('home');
-    }
-    return true;
-  }
-
-  if (intent === 'reset_pin') {
-    hideLoader();
-    // แสดง dialog ตั้ง PIN ใหม่
-    const newPin = prompt(`✅ ยืนยัน Gmail แล้ว: ${email}\n\nป้อน PIN ใหม่ 6 หลัก:`);
-    if (!newPin || !/^\d{6}$/.test(newPin)) { goScreen('login'); return true; }
-    const newPinHash = await sha256(newPin);
-    showLoader('กำลังรีเซ็ต PIN...');
-    const { data } = await db.rpc('reset_pin_via_email', {
-      p_email: email, p_new_pin_hash: newPinHash, p_fp: fp
-    });
-    hideLoader();
-    if (data?.ok) {
-      alert(`✅ รีเซ็ต PIN เรียบร้อย!\nPIN ใหม่ของคุณ: ${newPin}`);
-      goScreen('login');
-    } else {
-      alert(data?.message || 'Gmail นี้ไม่ได้ผูกกับบัญชีใดในระบบ');
-      goScreen('forgot-pin');
-    }
-    return true;
-  }
-
-  return false;
-}
-
-// ===== Home =====
-async function renderHome() {
-  const fp = getFingerprint();
-  let member = null;
-
-  showLoader('กำลังโหลด...');
-  try {
-    if (IS_CONFIGURED && db) {
-      const { data } = await db.rpc('get_member_by_fp', { p_fp: fp });
-      member = data;
-      if (!member) { goScreen('register'); return; }
-    } else {
-      const members = lsGet('members') || [];
-      member = members.find(m => m.fp===fp);
-      if (!member) { goScreen('register'); return; }
-      const sorted = [...members].sort((a,b)=>(b.points||0)-(a.points||0));
-      member._rank = sorted.findIndex(m=>m.fp===fp) + 1;
-    }
-  } catch(e) { console.error(e); }
-  finally { hideLoader(); }
-
-  if (!member) return;
-  currentMember = member;
-  if (checkSuspended(member)) return;
-
-  // register push subscription (non-blocking)
-  setTimeout(() => registerPush(), 2000);
-
-  const initials = member.name.slice(0,2).toUpperCase();
-  document.getElementById('home-av').textContent = initials;
-  document.getElementById('home-av').className = 'avatar ' + (TEAM_AV[member.team]||'av-mystic');
-  document.getElementById('home-name').textContent = member.name;
-  document.getElementById('home-gameid').textContent = member.gameid;
-  const tb = document.getElementById('home-team-badge');
-  tb.textContent = TEAM_LABEL[member.team]||'';
-  tb.className = 'badge ' + (TEAM_BADGE[member.team]||'badge-blue');
-  document.getElementById('home-events').textContent = member.events||0;
-  document.getElementById('home-pts').textContent = member.points||0;
-  document.getElementById('home-rank').textContent = member._rank ? '#'+member._rank : '#-';
-  renderAchBadge(document.getElementById('home-ach-badge'), member.events||0);
-
-  // Pre-fill register form for editing
-  document.getElementById('reg-name').value = member.name;
-  document.getElementById('reg-gameid').value = member.gameid;
-  // PIN fields intentionally left blank (don't pre-fill for security)
-  pickTeam(member.team, document.querySelector('.team-opt.'+member.team));
-
-  // แสดง/ซ่อนปุ่มเชื่อม Gmail
-  const gmailRow     = document.getElementById('gmail-link-row');
-  const gmailLinked  = document.getElementById('gmail-linked');
-  const gmailBtn     = document.getElementById('gmail-link-btn');
-  const gmailEmail   = document.getElementById('gmail-email');
-  if (gmailRow) {
-    gmailRow.style.display = 'block';
-    if (member.email) {
-      gmailLinked.style.display = 'block';
-      if (gmailEmail) gmailEmail.textContent = member.email;
-      if (gmailBtn)   gmailBtn.style.display = 'none';
-    } else {
-      gmailLinked.style.display = 'none';
-      if (gmailBtn) gmailBtn.style.display = 'flex';
-    }
-  }
-
-  await renderActivityList(member);
-}
-
-async function renderActivityList(member) {
-  let activities = [], checkins = [], drawWinnersMap = {};
-  try {
-    if (IS_CONFIGURED && db) {
-      const { data: acts } = await db.from('activities').select('*').eq('is_open', true).order('created_at', {ascending:false});
-      // กรองออกถ้าหมดเวลาแล้ว (end_time ผ่านไปแล้ว)
-      const now = new Date();
-      activities = (acts || []).filter(a => !a.end_time || now <= new Date(a.end_time));
-      if (member && activities.length > 0) {
-        const actIds = activities.map(a=>a.id);
-        const [{ data: cis }, { data: dws }, { data: myWins }] = await Promise.all([
-          db.from('checkins').select('activity_id,timestamp').eq('member_id', member.id).in('activity_id', actIds),
-          db.from('draw_winners').select('activity_id,member_name,prize_rank,prize_name').in('activity_id', actIds).order('prize_rank'),
-          db.from('draw_winners').select('*').eq('member_id', member.id).in('activity_id', actIds)
-        ]);
-        checkins = cis || [];
-        drawWinnersMap = {};
-        (dws||[]).forEach(w=>{ if(!drawWinnersMap[w.activity_id]) drawWinnersMap[w.activity_id]=[]; drawWinnersMap[w.activity_id].push(w); });
-        // แสดง popup รางวัลที่ยังไม่ได้ดู
-        if (myWins?.length) showPrizePopup(myWins);
-      }
-    } else {
-      activities = (lsGet('activities')||[]).filter(a=>a.isOpen||a.is_open);
-      const fp = getFingerprint();
-      checkins = (lsGet('checkins')||[]).filter(c => activities.some(a=>a.id===c.activityId) && c.memberId===fp);
-    }
-  } catch(e) { console.error(e); }
-
-  const el = document.getElementById('activity-list');
-  if (activities.length === 0) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">😴</div><p style="font-weight:600;color:#6b7280">ยังไม่มีกิจกรรมที่เปิดอยู่</p><p style="font-size:12px;margin-top:4px;color:#9ca3af">ติดตามผ่าน LINE OpenChat ของกลุ่ม</p></div>`;
-    return;
-  }
-
-  el.innerHTML = activities.map(act => {
-    const myCI = checkins.find(c => c.activity_id===act.id || c.activityId===act.id);
-    const actWinners = drawWinnersMap[act.id]||[];
-    const icon = TYPE_ICON[act.type]||'🎮';
-    const demoNote = (act.radius>=10000) ? ' <span style="font-size:10px;color:#9ca3af">(Demo)</span>' : '';
-    // Time window check
-    const now = new Date();
-    const beforeStart = act.start_time && now < new Date(act.start_time);
-    const afterEnd    = act.end_time   && now > new Date(act.end_time);
-    const inWindow    = !beforeStart && !afterEnd;
-    const fmtT = iso => iso ? new Date(iso).toLocaleString('th-TH',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-    const timeLabel = (act.start_time||act.end_time)
-      ? `${fmtT(act.start_time)} – ${fmtT(act.end_time)}`
-      : (act.time_label||act.timeLabel||'');
-    return `<div class="card card-activity">
-  ${act.image_url?`<img src="${act.image_url}" alt="รูปกิจกรรม" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin-bottom:10px">`:''}
-  <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
-    <div style="font-size:30px;flex-shrink:0">${icon}</div>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:14px;font-weight:700;color:#111">${act.name}</div>
-      <div style="font-size:11px;color:#6b7280;margin-top:2px">⏰ ${timeLabel||'ไม่กำหนดเวลา'}</div>
-      <div style="font-size:11px;color:#6b7280">📍 รัศมี ${(act.radius||100).toLocaleString()}m${demoNote} · ⭐ ${act.pts_per_checkin||act.ptsPerCheckin||20} pt</div>
-    </div>
-    <span class="badge badge-live" style="flex-shrink:0;font-size:10px">Live</span>
-  </div>
-  ${myCI
-    ? `<div style="background:#dcfce7;border-radius:9px;padding:9px 12px;font-size:13px;color:#15803d;font-weight:600;text-align:center">✅ เช็คอินแล้ว เวลา ${new Date(myCI.timestamp).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น.</div>`
-    : beforeStart
-      ? `<div style="background:#fef9c3;border-radius:9px;padding:9px 12px;font-size:13px;color:#92400e;font-weight:600;text-align:center">⏳ ยังไม่ถึงเวลาเริ่ม · ${fmtT(act.start_time)}</div>`
-      : afterEnd
-        ? `<div style="background:#f3f4f6;border-radius:9px;padding:9px 12px;font-size:13px;color:#6b7280;font-weight:600;text-align:center">⏰ หมดเวลาแล้ว</div>`
-        : `<button class="btn btn-primary" onclick="startCheckin('${act.id}')">📍 เช็คอินเข้าร่วม</button>`
-  }
-  ${actWinners.length ? `
-  <div style="margin-top:10px;padding-top:10px;border-top:1px solid #fecdd3">
-    <div style="font-size:11px;font-weight:700;color:#E8274B;margin-bottom:6px">🏆 ผู้โชคดี</div>
-    ${actWinners.map(w=>`
-      <div style="display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:4px">
-        <span style="font-weight:700;color:#E8274B;min-width:22px">#${w.prize_rank}</span>
-        <span style="font-weight:600">${w.member_name}</span>
-        ${w.prize_name?`<span style="color:#6b7280;font-size:11px">· ${w.prize_name}</span>`:''}
-      </div>`).join('')}
-  </div>` : ''}
-</div>`;
-  }).join('');
-}
-
-// ===== Prize Popup =====
-function copyPrizeCode(btn) {
-  const code = btn.getAttribute('data-code');
-  if (!code) return;
-  navigator.clipboard.writeText(code).then(() => {
-    btn.textContent = '✅ คัดลอกสำเร็จ!';
-    btn.style.background = '#166534';
-    setTimeout(() => { btn.textContent = '📋 คัดลอกโค้ด'; btn.style.background = '#15803d'; }, 2500);
-  }).catch(() => {
-    // fallback สำหรับบางบราวเซอร์
-    const ta = document.createElement('textarea');
-    ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-    btn.textContent = '✅ คัดลอกสำเร็จ!';
-    setTimeout(() => { btn.textContent = '📋 คัดลอกโค้ด'; }, 2500);
-  });
-}
-
-function showPrizePopup(myWins) {
-  const seen = JSON.parse(localStorage.getItem('pgo_seen_prizes')||'[]');
-  const unseen = myWins.filter(w => !seen.includes(w.id));
-  if (!unseen.length) return;
-
-  const newSeen = [...new Set([...seen, ...unseen.map(w=>w.id)])];
-  localStorage.setItem('pgo_seen_prizes', JSON.stringify(newSeen));
-
-  let idx = 0;
-  function showOne() {
-    if (idx >= unseen.length) return;
-    const w = unseen[idx++];
-
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s';
-
-    // สร้าง inner card
-    const card = document.createElement('div');
-    card.style.cssText = 'background:#fff;border-radius:20px;padding:28px 24px;max-width:360px;width:100%;text-align:center;position:relative;animation:popIn 0.4s cubic-bezier(.175,.885,.32,1.275)';
-
-    // ส่วนหัว
-    card.innerHTML = `
-      <div style="font-size:64px;line-height:1;margin-bottom:8px">🎁</div>
-      <div style="font-size:22px;font-weight:800;color:#E8274B;margin-bottom:4px">🎉 ยินดีด้วย!</div>
-      <div style="font-size:14px;color:#6b7280;margin-bottom:16px">คุณได้รับรางวัลจากการสุ่ม</div>
-      <div style="background:#fff7ed;border:2px solid #fed7aa;border-radius:12px;padding:14px;margin-bottom:16px" id="pp-prize-box">
-        <div style="font-size:18px;font-weight:800;color:#111;margin-bottom:8px">${w.prize_name||'รางวัล'}</div>
-        ${w.prize_image_url ? `<img src="${w.prize_image_url}" style="max-width:100%;max-height:180px;border-radius:10px;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto">` : ''}
-      </div>`;
-
-    const prizebox = card.querySelector('#pp-prize-box');
-
-    // ปุ่มคัดลอกโค้ด (สร้างด้วย DOM ไม่ใช้ innerHTML)
-    if (w.prize_code) {
-      const codeWrap = document.createElement('div');
-      codeWrap.style.cssText = 'background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;margin-bottom:8px';
-      codeWrap.innerHTML = `<div style="font-size:11px;color:#6b7280;margin-bottom:4px">Redemption Code</div><div style="font-family:monospace;font-size:16px;font-weight:800;color:#15803d;letter-spacing:1px">${w.prize_code}</div>`;
-      const copyBtn = document.createElement('button');
-      copyBtn.textContent = '📋 คัดลอกโค้ด';
-      copyBtn.style.cssText = 'margin-top:8px;padding:6px 16px;background:#15803d;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer';
-      copyBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        const doSuccess = () => { copyBtn.textContent='✅ คัดลอกสำเร็จ!'; copyBtn.style.background='#166534'; setTimeout(()=>{copyBtn.textContent='📋 คัดลอกโค้ด';copyBtn.style.background='#15803d';},2500); };
-        navigator.clipboard ? navigator.clipboard.writeText(w.prize_code).then(doSuccess).catch(()=>{
-          const ta=document.createElement('textarea'); ta.value=w.prize_code; ta.style.cssText='position:fixed;opacity:0';
-          document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSuccess();
-        }) : (()=>{ const ta=document.createElement('textarea'); ta.value=w.prize_code; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); doSuccess(); })();
-      });
-      codeWrap.appendChild(copyBtn);
-      prizebox.appendChild(codeWrap);
-    }
-
-    // ปุ่มลิงค์แลกรางวัล
-    if (w.prize_link) {
-      const linkBtn = document.createElement('a');
-      linkBtn.href = w.prize_link.startsWith('http') ? w.prize_link : 'https://' + w.prize_link;
-      linkBtn.target = '_blank';
-      linkBtn.rel = 'noopener noreferrer';
-      linkBtn.textContent = '🔗 ไปหน้าแลกรางวัล';
-      linkBtn.style.cssText = 'display:inline-block;padding:8px 20px;background:#3b82f6;color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:4px;cursor:pointer';
-      prizebox.appendChild(linkBtn);
-    }
-
-    // ปุ่มรับทราบ/ถัดไป
-    const dismissBtn = document.createElement('button');
-    dismissBtn.textContent = idx < unseen.length ? '➡️ รางวัลถัดไป' : '✅ รับทราบแล้ว';
-    dismissBtn.style.cssText = 'width:100%;padding:12px;background:#E8274B;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer';
-    dismissBtn.addEventListener('click', () => { overlay.remove(); setTimeout(showOne, 400); });
-    card.appendChild(dismissBtn);
-
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-  }
-  showOne();
-}
-
-// ===== Check-in =====
-async function startCheckin(actId) {
-  let acts = [];
-  try {
-    if (IS_CONFIGURED && db) {
-      const { data } = await db.from('activities').select('*').eq('id', actId).single();
-      acts = data ? [data] : [];
-    } else {
-      acts = lsGet('activities')||[];
-    }
-  } catch(e) {}
-
-  activeActivity = (IS_CONFIGURED ? acts[0] : acts.find(a=>a.id===actId));
-  if (!activeActivity) return;
-
-  document.getElementById('ci-title').textContent = '📍 ' + activeActivity.name;
-  document.getElementById('ci-sub').textContent = 'ตรวจสอบตำแหน่ง GPS';
-  document.getElementById('ci-btn').disabled = true;
-  document.getElementById('ci-err').style.display = 'none';
-  document.getElementById('gps-dist-badge').style.display = 'none';
-  gpsResult = null;
-
-  setGPSUI('checking','📍','กำลังตรวจสอบตำแหน่ง...','โปรดอนุญาตการเข้าถึง GPS');
-  goScreen('checkin');
-
-  if (!navigator.geolocation) { setGPSUI('fail','📵','ไม่รองรับ GPS','เบราว์เซอร์นี้ไม่รองรับ Geolocation'); return; }
-
-  navigator.geolocation.getCurrentPosition(pos => {
-    const radius = activeActivity.radius || activeActivity.radius;
-    const dist = haversine(pos.coords.latitude, pos.coords.longitude, activeActivity.lat, activeActivity.lng);
-    gpsResult = { lat: pos.coords.latitude, lng: pos.coords.longitude, dist, acc: Math.round(pos.coords.accuracy) };
-
-    const db2 = document.getElementById('gps-dist-badge');
-    db2.style.display = 'inline-flex';
-    db2.textContent = 'ระยะ: ' + dist.toLocaleString() + ' เมตร';
-
-    if (dist <= radius) {
-      db2.className = 'badge badge-ok';
-      setGPSUI('ok','✅','อยู่ในพื้นที่ ✓','ห่าง '+dist.toLocaleString()+' เมตร จากจุดกิจกรรม');
-      document.getElementById('ci-btn').disabled = false;
-    } else {
-      db2.className = 'badge badge-red';
-      setGPSUI('fail','❌','อยู่นอกพื้นที่','คุณอยู่ห่าง '+dist.toLocaleString()+'m — ต้องอยู่ภายใน '+radius.toLocaleString()+'m');
-    }
-  }, err => {
-    const msgs = {1:'กรุณาอนุญาต GPS ในเบราว์เซอร์',2:'ระบุตำแหน่งไม่ได้',3:'หมดเวลารับสัญญาณ'};
-    setGPSUI('fail','📵','รับ GPS ไม่ได้', msgs[err.code]||'เกิดข้อผิดพลาด');
-  }, { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
-}
-
-function setGPSUI(type, icon, title, detail) {
-  document.getElementById('gps-ring').className = 'gps-ring ' + type;
-  document.getElementById('gps-icon').textContent = icon;
-  document.getElementById('gps-title').textContent = title;
-  document.getElementById('gps-detail').textContent = detail;
-}
-
-async function doCheckin() {
-  if (!activeActivity || !gpsResult) return;
-  const fp = getFingerprint();
-  const errEl = document.getElementById('ci-err');
+async function doLoginWithPin() {
+  const gameid = $('lp-gameid').value.trim();
+  const pin    = $('lp-pin').value;
+  const errEl  = $('login-pin-err');
   errEl.style.display = 'none';
-  document.getElementById('ci-btn').disabled = true;
-  showLoader('กำลังสร้าง QR Code...');
 
+  if (!gameid || !pin) { errEl.textContent = 'กรุณากรอกชื่อในเกมและ PIN'; errEl.style.display = 'block'; return; }
   try {
-    let member = currentMember;
-    if (!member) {
-      if (IS_CONFIGURED && db) {
-        const { data } = await db.rpc('get_member_by_fp', { p_fp: fp });
-        member = data;
-      }
-      if (!member) { goScreen('register'); return; }
-    }
-
-    if (IS_CONFIGURED && db) {
-      const { data: tokenData, error: tokenErr } = await db.rpc('create_checkin_token', {
-        p_fp: fp,
-        p_activity_id: activeActivity.id
-      });
-      if (tokenErr) {
-        const msg = tokenErr.message || '';
-        if (msg.includes('ALREADY_CHECKIN'))       showErr(errEl, '✅ คุณเช็คอินกิจกรรมนี้ไปแล้ว');
-        else if (msg.includes('ACTIVITY_ENDED'))   showErr(errEl, '⏰ กิจกรรมนี้หมดเวลาแล้ว');
-        else if (msg.includes('ACTIVITY_NOT_FOUND')) showErr(errEl, '❌ ไม่พบกิจกรรมหรือกิจกรรมปิดแล้ว');
-        else if (msg.includes('MEMBER_NOT_FOUND')) showErr(errEl, '❌ ไม่พบข้อมูลสมาชิก กรุณาลงทะเบียนใหม่');
-        else showErr(errEl, 'เกิดข้อผิดพลาด: ' + msg);
-        document.getElementById('ci-btn').disabled = false;
-        return;
-      }
-      hideLoader();
-      await showQR(tokenData, member);
-    } else {
-      showErr(errEl, '❌ ระบบ QR ต้องการการเชื่อมต่อ Supabase');
-      document.getElementById('ci-btn').disabled = false;
-    }
-  } catch(e) {
-    showErr(errEl, 'เกิดข้อผิดพลาด: ' + e.message);
-    document.getElementById('ci-btn').disabled = false;
-  } finally { hideLoader(); }
-}
-
-// ===== QR Check-in =====
-function clearQRTimers() {
-  if (_qrCountInterval) { clearInterval(_qrCountInterval); _qrCountInterval = null; }
-  if (_qrPollInterval)  { clearInterval(_qrPollInterval);  _qrPollInterval  = null; }
-}
-
-async function showQR(tokenData, member) {
-  document.getElementById('qr-act-title').textContent = '🎫 ' + (tokenData.activity_name || activeActivity?.name || 'เช็คอิน');
-  document.getElementById('qr-act-sub').textContent = 'แสดงให้แอดมินสแกน';
-  document.getElementById('qr-err').style.display = 'none';
-  const statusEl = document.getElementById('qr-status-msg');
-  statusEl.textContent = '⏳ รอแอดมินสแกน...';
-  statusEl.style.color = '#6b7280';
-  const cancelBtn = document.getElementById('qr-cancel-btn');
-  cancelBtn.textContent = '← ยกเลิก';
-  cancelBtn.onclick = cancelQR;
-
-  // สร้าง QR Code
-  const qrDiv = document.getElementById('qr-canvas');
-  qrDiv.innerHTML = '';
-  if (window.QRCode) {
-    new QRCode(qrDiv, {
-      text: tokenData.token,
-      width: 220, height: 220,
-      colorDark: '#111111', colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  } else {
-    qrDiv.innerHTML = '<div style="font-size:12px;color:#dc2626;padding:10px">ไม่สามารถสร้าง QR ได้</div>';
-  }
-
-  goScreen('qr-show');
-
-  // Countdown
-  const expiresAt = new Date(tokenData.expires_at).getTime();
-  function tick() {
-    const left = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-    document.getElementById('qr-countdown').textContent = left;
-    if (left <= 0) {
-      clearQRTimers();
-      statusEl.textContent = '⏰ QR หมดอายุแล้ว กรุณากลับไปกดเช็คอินใหม่';
-      statusEl.style.color = '#dc2626';
-      cancelBtn.textContent = '← กลับ';
-    }
-  }
-  tick();
-  _qrCountInterval = setInterval(tick, 1000);
-
-  // Poll ทุก 3 วินาที
-  _qrPollInterval = setInterval(async () => {
-    try {
-      const { data: st } = await db.rpc('check_token_status', { p_token: tokenData.token });
-      if (!st) return;
-      if (st.status === 'used') {
-        clearQRTimers();
-        statusEl.textContent = '✅ สแกนสำเร็จ! กำลังแสดงผล...';
-        statusEl.style.color = '#15803d';
-        cancelBtn.style.display = 'none';
-        await _showCheckinSuccess(member);
-      } else if (st.status === 'expired') {
-        clearQRTimers();
-        document.getElementById('qr-countdown').textContent = '0';
-        statusEl.textContent = '⏰ QR หมดอายุแล้ว กรุณากลับไปกดเช็คอินใหม่';
-        statusEl.style.color = '#dc2626';
-        cancelBtn.textContent = '← กลับ';
-      }
-    } catch(e) { console.warn('QR poll error', e); }
-  }, 3000);
-}
-
-function cancelQR() {
-  clearQRTimers();
-  document.getElementById('ci-btn').disabled = false;
-  goScreen('checkin');
-}
-
-async function _showCheckinSuccess(member) {
-  try {
-    if (IS_CONFIGURED && db) {
-      const { data } = await db.rpc('get_member_by_fp', { p_fp: getFingerprint() });
-      if (data) member = data;
-    }
-  } catch(e) {}
-  currentMember = member;
-
-  document.getElementById('succ-av').textContent = member.name.slice(0,2).toUpperCase();
-  document.getElementById('succ-av').className = 'avatar '+(TEAM_AV[member.team]||'av-mystic');
-  document.getElementById('succ-name').textContent = member.name;
-  document.getElementById('succ-gameid').textContent = member.gameid;
-  const st = document.getElementById('succ-team');
-  st.textContent = TEAM_LABEL[member.team]||''; st.className='badge '+(TEAM_BADGE[member.team]||'badge-blue');
-  document.getElementById('succ-events').textContent = member.events||1;
-  document.getElementById('succ-pts').textContent = member.points||0;
-  document.getElementById('succ-time').textContent = new Date().toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'long'})+' น.';
-  document.getElementById('succ-dist').textContent = '✓ แอดมินสแกน QR ยืนยันแล้ว · ระยะ '+(gpsResult?.dist||0).toLocaleString()+' เมตร';
-  document.getElementById('succ-actname').textContent = '📍 '+(activeActivity?.name||'');
-  goScreen('success');
-}
-
-function changeDevice() {
-  if (confirm('ออกจากระบบในอุปกรณ์นี้?')) { lsDel('member_fp'); currentMember=null; goScreen('register'); }
-}
-
-// ===== Leaderboard =====
-let _lbData = [];
-let _lbFilter = 'all';
-
-async function loadLeaderboard() {
-  const podiumEl = document.getElementById('lb-podium');
-  const listEl   = document.getElementById('lb-list');
-  podiumEl.innerHTML = '<div style="padding:20px;text-align:center"><div class="spin" style="margin:0 auto"></div></div>';
-  listEl.innerHTML   = '';
-
-  try {
-    if (IS_CONFIGURED && db) {
-      const { data, error } = await db.rpc('get_leaderboard', { p_limit: 100 });
-      _lbData = error ? [] : (data || []);
-    } else {
-      const members = lsGet('members') || [];
-      const sorted = [...members].sort((a,b)=>(b.points||0)-(a.points||0)||(b.events||0)-(a.events||0));
-      _lbData = sorted.map((m,i)=>({...m, rank:i+1}));
-    }
-  } catch(e) { _lbData = []; }
-
-  renderLeaderboard();
-}
-
-function lbFilter(team) {
-  _lbFilter = team;
-  document.querySelectorAll('.lb-ftab').forEach(el => el.classList.remove('active'));
-  document.getElementById('lbf-' + team).classList.add('active');
-  renderLeaderboard();
-}
-
-function renderLeaderboard() {
-  const myId = currentMember?.id;
-  const all  = _lbFilter === 'all' ? _lbData : _lbData.filter(m => m.team === _lbFilter);
-
-  // Re-rank after filter
-  const ranked = all.map((m, i) => ({...m, displayRank: i + 1}));
-
-  // Podium (top 3)
-  const podiumEl = document.getElementById('lb-podium');
-  const podOrder = [ranked[1], ranked[0], ranked[2]]; // 2nd, 1st, 3rd
-  const podClass = ['second','first','third'];
-  const podCrown = ['🥈','👑','🥉'];
-
-  podiumEl.innerHTML = podOrder.map((m, i) => {
-    if (!m) return '<div class="lb-pod"></div>';
-    const av = (TEAM_AV[m.team] || 'av-mystic');
-    const initials = (m.name||'').slice(0,2).toUpperCase();
-    return `
-      <div class="lb-pod ${podClass[i]}">
-        <div style="font-size:${i===1?'24px':'18px'}">${podCrown[i]}</div>
-        <div class="lb-pod-av ${av}">${initials}</div>
-        <div class="lb-pod-name">${m.name}</div>
-        <div class="lb-pod-pts">${m.points||0} pt</div>
-        <div class="lb-pod-base">
-          <div class="lb-rank-num">#${m.displayRank}</div>
-        </div>
-      </div>`;
-  }).join('');
-
-  // Full list (ข้าม top3)
-  const listEl = document.getElementById('lb-list');
-  if (!ranked.length) {
-    listEl.innerHTML = '<div class="empty-state"><span class="empty-icon">🏆</span><p>ยังไม่มีข้อมูล</p></div>';
-    return;
-  }
-  listEl.innerHTML = ranked.map(m => {
-    const isMe = m.id === myId;
-    const av   = TEAM_AV[m.team] || 'av-mystic';
-    const medal = m.displayRank === 1 ? '🥇' : m.displayRank === 2 ? '🥈' : m.displayRank === 3 ? '🥉' : m.displayRank;
-    return `
-      <div class="lb-row${isMe ? ' me' : ''}">
-        <div class="lb-rank">${medal}</div>
-        <div class="lb-av ${av}">${(m.name||'').slice(0,2).toUpperCase()}</div>
-        <div class="lb-info">
-          <div class="lb-info-name">${m.name}${isMe ? ' <span style="color:var(--red);font-size:10px">(คุณ)</span>' : ''}${(()=>{const b=getBadge(m.events||0);return b?` <span style="font-size:11px">${b.icon}</span>`:''})()}</div>
-          <div class="lb-info-sub">${m.gameid} · ${(TEAM_LABEL[m.team]||'')} · ${m.events||0} กิจกรรม</div>
-        </div>
-        <div class="lb-pts">${m.points||0} <span style="font-size:10px;font-weight:600;color:var(--muted)">pt</span></div>
-      </div>`;
-  }).join('');
-
-  // อัปเดต subtitle
-  const sub = document.getElementById('lb-sub');
-  if (sub && currentMember) {
-    const myEntry = ranked.find(m => m.id === myId);
-    sub.textContent = myEntry ? `คุณอยู่อันดับ #${myEntry.displayRank}` : 'อันดับแต้มสะสม';
-  }
-}
-
-function doLogout() {
-  if (!confirm('ออกจากระบบ?\n(ข้อมูลและแต้มสะสมจะยังคงอยู่)')) return;
-  localStorage.setItem('pgo_logged_out','1');
-  currentMember = null;
-  goScreen('register');
-}
-
-// ===== Check-in History =====
-async function loadHistory() {
-  const el = document.getElementById('hist-list');
-  const sub = document.getElementById('hist-sub');
-  el.innerHTML = '<div class="spin" style="margin:20px auto"></div>';
-  try {
-    let rows = [];
-    if (IS_CONFIGURED && db && currentMember) {
-      const { data, error } = await db.rpc('get_member_checkins', { p_member_id: currentMember.id });
-      if (!error) rows = data || [];
-    }
-    if (!rows.length) {
-      el.innerHTML = '<div class="empty-state"><span class="empty-icon">📋</span><p>ยังไม่มีประวัติเช็คอิน</p></div>';
-      if (sub) sub.textContent = 'ยังไม่มีประวัติ';
-      return;
-    }
-    if (sub) sub.textContent = `เข้าร่วมแล้ว ${rows.length} กิจกรรม`;
-    el.innerHTML = rows.map((r, i) => {
-      const icon = TYPE_ICON[r.activity_type] || '📍';
-      const d = new Date(r.checked_at);
-      const dateStr = d.toLocaleDateString('th-TH', { day:'numeric', month:'short', year:'2-digit' });
-      const timeStr = d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
-      return `<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #f3f4f6${i===rows.length-1?';border-bottom:none':''}">
-        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--red),var(--red-dark));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${icon}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.activity_name}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${dateStr} · ${timeStr}${r.time_label ? ' · '+r.time_label : ''}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:15px;font-weight:900;color:var(--red)">+${r.pts_earned}</div>
-          <div style="font-size:10px;color:var(--muted);font-weight:600">แต้ม</div>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) {
-    el.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span><p>เกิดข้อผิดพลาด</p></div>';
-  }
-}
-// ===== Achievement Badges =====
-const BADGES = [
-  { min:50, cls:'ach-champion', icon:'👑', label:'Champion'   },
-  { min:30, cls:'ach-diamond',  icon:'💎', label:'Diamond'    },
-  { min:15, cls:'ach-gold',     icon:'🥇', label:'Gold'       },
-  { min:7,  cls:'ach-silver',   icon:'🥈', label:'Silver'     },
-  { min:3,  cls:'ach-bronze',   icon:'🥉', label:'Bronze'     },
-  { min:1,  cls:'ach-newcomer', icon:'🌱', label:'Newcomer'   },
-];
-
-function getBadge(events) {
-  return BADGES.find(b => (events||0) >= b.min) || null;
-}
-
-function renderAchBadge(el, events) {
-  const b = getBadge(events);
-  if (!b || !el) return;
-  el.className = 'ach-badge ' + b.cls;
-  el.innerHTML = `<span class="ach-icon">${b.icon}</span>${b.label}`;
-  el.style.display = 'inline-flex';
-}
-// ===== Push Notifications =====
-const VAPID_PUBLIC_KEY = 'BKR7my2pD_BsOhUi0TewJfQ28eBGLkKv4wfkmLUfkV9lb5DgWRjR0dHjcJNEPgA_j5XwTq59cHOOOtWXoAjRNqg';
-const PUSH_EDGE_URL = IS_CONFIGURED
-  ? 'https://mywgmpeirhuzeglzofso.supabase.co/functions/v1/send-push'
-  : null;
-
-function urlB64ToUint8Array(b) {
-  const pad = '='.repeat((4 - b.length % 4) % 4);
-  const s = atob((b + pad).replace(/-/g,'+').replace(/_/g,'/'));
-  return Uint8Array.from(s, c => c.charCodeAt(0));
-}
-
-async function registerPush() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  try {
-    const reg = await navigator.serviceWorker.register('/sw.js');
-    await navigator.serviceWorker.ready;
-    // ask permission only if not yet granted
-    if (Notification.permission === 'default') {
-      const p = await Notification.requestPermission();
-      if (p !== 'granted') return;
-    }
-    if (Notification.permission !== 'granted') return;
-    // Unsubscribe existing first to force fresh subscription (ensures DB is in sync)
-    const existing = await reg.pushManager.getSubscription();
-    if (existing) await existing.unsubscribe();
-
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
-    });
-    const j = sub.toJSON();
-    console.log('[Push] subscribed, endpoint:', j.endpoint?.slice(-30));
-    if (IS_CONFIGURED && db && currentMember) {
-      const { error } = await db.rpc('upsert_push_subscription', {
-        p_member_id: currentMember.id,
-        p_endpoint:  j.endpoint,
-        p_p256dh:    j.keys.p256dh,
-        p_auth:      j.keys.auth,
-      });
-      if (error) console.warn('[Push] upsert error', error);
-      else console.log('[Push] saved to DB OK');
-    } else {
-      console.warn('[Push] skip DB save — IS_CONFIGURED:', IS_CONFIGURED, 'db:', !!db, 'member:', !!currentMember);
-    }
-  } catch(e) { console.warn('[Push] register failed', e); }
-}
-
-// ===== Deep-link helper =====
-function applyDeepLink(actId) {
-  // ตรวจ ?go= param (จาก push notification) ก่อน แล้วค่อยตรวจ ?activity=
-  const savedGo = sessionStorage.getItem('pgo_go');
-  if (savedGo) {
-    sessionStorage.removeItem('pgo_go');
-    const screenMap = {
-      leaderboard: 'leaderboard',
-      'checkin-history': 'checkin-history',
-      badge: 'badge',
-      home: 'home',
-    };
-    const target = screenMap[savedGo];
-    if (target) { goScreen(target); return; }
-  }
-  if (actId) startCheckin(actId);
-  else goScreen('home');
-}
-
-// ===== Init =====
-window.addEventListener('DOMContentLoaded', () => {
-  const params = new URLSearchParams(location.search);
-  const actId  = params.get('activity');
-  // เก็บ deep-link target จาก push notification
-  const goParam = params.get('go');
-  if (goParam) sessionStorage.setItem('pgo_go', goParam);
-
-  setTimeout(async () => {
-    // ตรวจ Google OAuth callback ก่อน
-    if (IS_CONFIGURED && db && localStorage.getItem('oauth_intent')) {
-      const handled = await handleGoogleCallback();
-      if (handled) return;
-    }
+    const pinHash = await sha256(pin);
+    const { data, error } = await db.from('members').select('*').ilike('gameid', gameid).eq('pin_hash', pinHash).maybeSingle();
+    if (!data) throw new Error('ชื่อในเกมหรือ PIN ไม่ถูกต้อง');
 
     const fp = getFingerprint();
-    let hasMember = false;
-    if (IS_CONFIGURED && db) {
+    await db.from('members').update({ fp }).eq('id', data.id);
+    currentMember = data;
+    localStorage.setItem('pgo_member_id', data.id);
+    goTo('home');
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// ── Home & Activities ─────────────────────────────────────────
+async function loadHome() {
+  if (!currentMember) return;
+  const m = currentMember;
+  $('home-greeting').textContent = 'สวัสดี ' + m.name;
+  $('u-name').textContent   = m.name;
+  $('u-gameid').textContent = m.gameid;
+  $('u-events').textContent = m.events || 0;
+  $('u-points').textContent = m.points || 0;
+
+  const av = $('u-avatar');
+  av.textContent = m.name.charAt(0).toUpperCase();
+  av.className = `avatar av-${m.team}`;
+
+  const b = getBadge(m.events || 0);
+  $('u-badge-wrap').innerHTML = b ? `<div class="ach-badge ${b.cls}"><span class="ach-icon">${b.icon}</span> ${b.label}</div>` : '';
+
+  // Load activities
+  const actListEl = $('activities-list');
+  actListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">กำลังโหลดกิจกรรม...</div>';
+
+  try {
+    const { data: acts } = await db.from('activities').select('*').eq('is_open', true).order('created_at', { ascending: false });
+    activeActivities = acts || [];
+
+    if (!activeActivities.length) {
+      actListEl.innerHTML = '<div class="empty-state"><span class="empty-icon">🍃</span>ไม่มีกิจกรรมที่เปิดอยู่ในขณะนี้</div>';
+      return;
+    }
+
+    actListEl.innerHTML = activeActivities.map(a => {
+      const mode = a.checkin_mode || 'qr';
+      const actionBtn = mode === 'gps'
+        ? `<button class="btn btn-primary btn-sm" onclick="startGpsCheckin('${a.id}')">📍 เช็คอินด้วย GPS</button>`
+        : `<button class="btn btn-primary btn-sm" onclick="startQrCheckin('${a.id}')">📷 สแกน QR เช็คอิน</button>`;
+
+      return `
+        <div class="card card-activity">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <h3 style="font-size:15px;font-weight:800;color:var(--text)">${a.name}</h3>
+            <span class="badge badge-live">Live</span>
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin:4px 0 12px">
+            ⭐ +${a.pts_per_checkin||20} แต้ม · รัศมี ${a.radius||100}m · โหมด: ${mode.toUpperCase()}
+          </p>
+          ${actionBtn}
+        </div>
+      `;
+    }).join('');
+  } catch(e) {
+    actListEl.innerHTML = '<div class="err-box">โหลดกิจกรรมไม่สำเร็จ: ' + e.message + '</div>';
+  }
+}
+
+// ── GPS Mode ──────────────────────────────────────────────────
+function startGpsCheckin(actId) {
+  selectedActivity = activeActivities.find(a => a.id === actId);
+  if (!selectedActivity) return;
+  goTo('checkin-gps');
+  $('gps-act-name').textContent = selectedActivity.name;
+  $('gps-ring').className = 'gps-ring checking';
+  $('gps-status-title').textContent = 'กำลังค้นหาตำแหน่ง GPS...';
+  $('gps-status-desc').textContent = 'กรุณารอสักครู่...';
+  $('gps-action-btn').style.display = 'none';
+
+  if (!navigator.geolocation) {
+    $('gps-ring').className = 'gps-ring fail';
+    $('gps-status-title').textContent = 'อุปกรณ์ไม่รองรับ GPS';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    currentGpsPos = pos.coords;
+    const dist = haversine(pos.coords.latitude, pos.coords.longitude, selectedActivity.lat, selectedActivity.lng);
+    const radius = selectedActivity.radius || 100;
+
+    if (dist <= radius) {
+      $('gps-ring').className = 'gps-ring ok';
+      $('gps-status-title').textContent = 'คุณอยู่ในพื้นที่กิจกรรม! ✅';
+      $('gps-status-desc').textContent = `ระยะห่างประมาณ ${dist} เมตร (รัศมี ${radius} เมตร)`;
+      $('gps-action-btn').style.display = 'block';
+    } else {
+      $('gps-ring').className = 'gps-ring fail';
+      $('gps-status-title').textContent = 'คุณอยู่นอกพื้นที่กิจกรรม ❌';
+      $('gps-status-desc').textContent = `คุณอยู่ห่างออกไป ${dist} เมตร (ต้องไม่เกิน ${radius} เมตร)`;
+    }
+  }, err => {
+    $('gps-ring').className = 'gps-ring fail';
+    $('gps-status-title').textContent = 'รับสัญญาณ GPS ไม่สำเร็จ';
+    $('gps-status-desc').textContent = err.message;
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+async function triggerGpsCheckin() {
+  const btn = $('gps-action-btn');
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    const dist = haversine(currentGpsPos.latitude, currentGpsPos.longitude, selectedActivity.lat, selectedActivity.lng);
+    const pts = selectedActivity.pts_per_checkin || 20;
+
+    const { error } = await db.from('checkins').insert({
+      member_id: currentMember.id,
+      activity_id: selectedActivity.id,
+      member_name: currentMember.name,
+      member_gameid: currentMember.gameid,
+      member_team: currentMember.team,
+      activity_name: selectedActivity.name,
+      pts_earned: pts,
+      fp: currentMember.fp || getFingerprint(),
+      distance: dist,
+      accuracy: currentGpsPos.accuracy || 0
+    });
+
+    if (error) {
+      if (error.message.includes('unique') || error.code === '23505') throw new Error('คุณเช็คอินกิจกรรมนี้ไปแล้ว');
+      throw error;
+    }
+
+    $('succ-msg').textContent = `เช็คอินสำเร็จ! คุณได้รับ +${pts} แต้ม`;
+    $('succ-dist').textContent = `ระยะห่างจุดกิจกรรม: ${dist} เมตร`;
+    goTo('checkin-success');
+  } catch(e) {
+    alert('เกิดข้อผิดพลาด: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'ยืนยันการเช็คอิน';
+  }
+}
+
+// ── QR Mode ───────────────────────────────────────────────────
+async function startQrCheckin(actId) {
+  selectedActivity = activeActivities.find(a => a.id === actId);
+  if (!selectedActivity) return;
+
+  $('global-loader').classList.remove('hidden');
+  $('loader-text').textContent = 'กำลังสร้าง QR Code...';
+
+  try {
+    const fp = currentMember.fp || getFingerprint();
+    const { data, error } = await db.rpc('create_checkin_token', {
+      p_fp: fp,
+      p_activity_id: actId
+    });
+
+    if (error) {
+      if (error.message.includes('ALREADY_CHECKIN')) throw new Error('คุณเช็คอินกิจกรรมนี้ไปแล้ว');
+      throw error;
+    }
+
+    $('global-loader').classList.add('hidden');
+    showQrModal(data.token);
+  } catch(e) {
+    $('global-loader').classList.add('hidden');
+    alert(e.message);
+  }
+}
+
+function showQrModal(token) {
+  $('qrcode').innerHTML = '';
+  new QRCode($('qrcode'), {
+    text: token,
+    width: 200,
+    height: 200,
+    colorDark: '#111',
+    colorLight: '#fff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+
+  $('qr-modal').style.display = 'flex';
+  let secLeft = 90;
+  $('qr-timer').textContent = `หมดอายุใน ${secLeft} วิ`;
+
+  clearInterval(qrExpireTimer);
+  qrExpireTimer = setInterval(() => {
+    secLeft--;
+    if (secLeft <= 0) {
+      clearInterval(qrExpireTimer);
+      closeQrModal();
+      alert('QR Code หมดอายุแล้ว กรุณากดสร้างใหม่อีกครั้ง');
+    } else {
+      $('qr-timer').textContent = `หมดอายุใน ${secLeft} วิ`;
+    }
+  }, 1000);
+
+  clearInterval(qrPollTimer);
+  qrPollTimer = setInterval(async () => {
+    const { data } = await db.rpc('check_token_status', { p_token: token });
+    if (data && data.status === 'used') {
+      closeQrModal();
+      $('succ-msg').textContent = 'แอดมินสแกนยืนยันการเช็คอินเรียบร้อย!';
+      $('succ-dist').textContent = 'เช็คอินผ่าน QR Code หน้างาน';
+      goTo('checkin-success');
+    }
+  }, 2500);
+}
+
+function closeQrModal() {
+  $('qr-modal').style.display = 'none';
+  clearInterval(qrExpireTimer);
+  clearInterval(qrPollTimer);
+}
+
+// ── Leaderboard ───────────────────────────────────────────────
+let lbCache = [];
+async function loadLeaderboard() {
+  const wrap = $('lb-list-wrap');
+  wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">กำลังโหลดอันดับ...</div>';
+  try {
+    const { data } = await db.from('members').select('*').order('points', { ascending: false });
+    lbCache = data || [];
+    renderLb(lbCache);
+  } catch(e) {
+    wrap.innerHTML = '<div class="err-box">โหลดไม่สำเร็จ: ' + e.message + '</div>';
+  }
+}
+
+function filterLb(team, el) {
+  document.querySelectorAll('.lb-ftab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const filtered = team ? lbCache.filter(m => m.team === team) : lbCache;
+  renderLb(filtered);
+}
+
+function renderLb(list) {
+  const podiumWrap = $('lb-podium-wrap');
+  const listWrap   = $('lb-list-wrap');
+
+  if (!list.length) {
+    podiumWrap.innerHTML = '';
+    listWrap.innerHTML = '<div class="empty-state">ไม่มีข้อมูล</div>';
+    return;
+  }
+
+  // Podium (Top 3)
+  const top3 = list.slice(0, 3);
+  podiumWrap.innerHTML = `
+    <div class="lb-podium">
+      ${top3[1] ? `
+        <div class="lb-pod second">
+          <div class="lb-pod-av av-${top3[1].team}">${top3[1].name.charAt(0)}</div>
+          <div class="lb-pod-name">${top3[1].name}</div>
+          <div class="lb-pod-pts">${top3[1].points} pt</div>
+          <div class="lb-pod-base"><span class="lb-rank-num">#2</span></div>
+        </div>` : ''}
+      ${top3[0] ? `
+        <div class="lb-pod first">
+          <div class="lb-pod-crown">👑</div>
+          <div class="lb-pod-av av-${top3[0].team}">${top3[0].name.charAt(0)}</div>
+          <div class="lb-pod-name">${top3[0].name}</div>
+          <div class="lb-pod-pts">${top3[0].points} pt</div>
+          <div class="lb-pod-base"><span class="lb-rank-num">#1</span></div>
+        </div>` : ''}
+      ${top3[2] ? `
+        <div class="lb-pod third">
+          <div class="lb-pod-av av-${top3[2].team}">${top3[2].name.charAt(0)}</div>
+          <div class="lb-pod-name">${top3[2].name}</div>
+          <div class="lb-pod-pts">${top3[2].points} pt</div>
+          <div class="lb-pod-base"><span class="lb-rank-num">#3</span></div>
+        </div>` : ''}
+    </div>
+  `;
+
+  // Rows (Rank 4+)
+  const rest = list.slice(3);
+  listWrap.innerHTML = rest.map((m, idx) => {
+    const isMe = currentMember && currentMember.id === m.id;
+    return `
+      <div class="lb-row ${isMe ? 'me' : ''}">
+        <div class="lb-rank">#${idx + 4}</div>
+        <div class="lb-av av-${m.team}">${m.name.charAt(0)}</div>
+        <div class="lb-info">
+          <div class="lb-info-name">${m.name}</div>
+          <div class="lb-info-sub">${m.gameid} · ${m.events||0} กิจกรรม</div>
+        </div>
+        <div class="lb-pts">${m.points} pt</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── App Init ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  setTimeout(async () => {
+    const savedId = localStorage.getItem('pgo_member_id');
+    if (savedId && db) {
       try {
-        const { data } = await db.rpc('get_member_by_fp', { p_fp: fp });
-        hasMember = !!data;
-        if (data) currentMember = data;
+        const { data } = await db.from('members').select('*').eq('id', savedId).single();
+        if (data) {
+          currentMember = data;
+          goTo('home');
+          return;
+        }
       } catch(e) {}
-    } else {
-      hasMember = !!(lsGet('members')||[]).find(m=>m.fp===fp);
     }
-    const loggedOut = localStorage.getItem('pgo_logged_out')==='1';
-    if (hasMember && !loggedOut) {
-      await renderHome();
-      applyDeepLink(actId);
-    } else {
-      goScreen('login'); // show login first, register is secondary
-    }
+    goTo('register');
   }, 1200);
 });
 </script>
