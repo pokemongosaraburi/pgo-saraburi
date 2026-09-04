@@ -1775,8 +1775,8 @@ async function mpResetPin(memberId) {
 
 async function mpDeleteMember(memberId, name) {
   if (!confirm(`⚠️ ลบสมาชิก "${name}" ออกจากระบบ?\nข้อมูลเช็คอินและแต้มจะหายทั้งหมด`)) return;
-  const { error } = await db.from('members').delete().eq('id', memberId);
-  if (error) { alert('ลบไม่ได้: ' + error.message); return; }
+  const { data, error } = await db.rpc('admin_delete_member', { p_member_id: memberId });
+  if (error || !data?.ok) { alert('ลบไม่ได้: ' + (error?.message || data?.message || 'เกิดข้อผิดพลาด')); return; }
   closeMemberPanel();
   loadMembers();
 }
