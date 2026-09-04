@@ -73,6 +73,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .btn-primary:hover{box-shadow:0 6px 22px var(--red-glow)}
 .btn-primary:disabled{background:#f9a8b8;box-shadow:none;cursor:not-allowed;transform:none}
 .btn-secondary{background:#fff;color:#374151;border:1.5px solid var(--border);font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.btn-sm{padding:8px 14px;font-size:13px;border-radius:10px}
 .mt-8{margin-top:10px}
 
 /* ═══ CARDS ═══ */
@@ -123,10 +124,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .empty-state{text-align:center;padding:44px 20px;color:var(--muted)}
 .empty-icon{font-size:58px;margin-bottom:12px;display:block}
 
-/* ═══ FOOTER ═══ */
-.foot{text-align:center;padding:16px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);margin-top:auto;background:#fff}
-.foot a{color:var(--red);text-decoration:none;font-weight:700}
-
 /* ═══ LEADERBOARD ═══ */
 .lb-podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:20px 8px 0}
 .lb-pod{display:flex;flex-direction:column;align-items:center;flex:1;max-width:120px}
@@ -165,7 +162,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .ach-champion{background:linear-gradient(135deg,#fdf4ff,#fae8ff);color:#7e22ce;border:1.5px solid #d8b4fe}
 .ach-badge .ach-icon{font-size:13px}
 
-/* ═══ QR CODE CARD ═══ */
+/* ═══ QR MODAL (ONE-TIME TOKEN) ═══ */
 .qr-modal{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
 .qr-box{background:#fff;border-radius:24px;padding:24px;width:100%;max-width:340px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.3)}
 #qrcode{margin:16px auto;display:flex;justify-content:center}
@@ -218,6 +215,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="form-group">
       <label class="form-label">Trainer Name (ชื่อในเกม)</label>
       <input class="form-input" id="reg-gameid" type="text" placeholder="เช่น TrainerBoss99" maxlength="20" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">เบอร์โทรศัพท์ (ไม่บังคับ)</label>
+      <input class="form-input" id="reg-phone" type="tel" placeholder="08xxxxxxxx" maxlength="15">
     </div>
     <div class="form-group">
       <label class="form-label">รหัส PIN 6 หลัก 🔐</label>
@@ -392,19 +393,29 @@ let qrPollTimer = null;
 let qrExpireTimer = null;
 
 function $(id) { return document.getElementById(id); }
+
 function goTo(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  $(screenId).classList.add('active');
+  const target = $(screenId);
+  if (target) target.classList.add('active');
   if (screenId === 'home') loadHome();
   if (screenId === 'leaderboard') loadLeaderboard();
 }
 
 function getFingerprint() {
-  const parts = [navigator.userAgent, screen.width+'x'+screen.height+'x'+screen.colorDepth,
-    Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.language,
-    navigator.hardwareConcurrency||0, navigator.maxTouchPoints||0].join('|');
+  const parts = [
+    navigator.userAgent,
+    screen.width + 'x' + screen.height + 'x' + screen.colorDepth,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    navigator.language,
+    navigator.hardwareConcurrency || 0,
+    navigator.maxTouchPoints || 0
+  ].join('|');
   let h = 2166136261;
-  for (let i = 0; i < parts.length; i++) { h ^= parts.charCodeAt(i); h = Math.imul(h, 16777619); }
+  for (let i = 0; i < parts.length; i++) {
+    h ^= parts.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
   return 'fp_' + (h >>> 0).toString(36);
 }
 
@@ -414,10 +425,20 @@ async function sha256(text) {
 }
 
 function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371000, toRad = x => x*Math.PI/180;
-  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
-  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  const R = 6371000, toRad = x => x * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+// ── Deep-Link Handler ─────────────────────────────────────────
+function applyDeepLink() {
+  const params = new URLSearchParams(window.location.search);
+  const go = params.get('go') || sessionStorage.getItem('pgo_deeplink');
+  if (go) {
+    sessionStorage.removeItem('pgo_deeplink');
+    if ($(go)) goTo(go);
+  }
 }
 
 // ── Register & Login ──────────────────────────────────────────
@@ -431,6 +452,7 @@ function pickTeam(t, el) {
 async function doRegister() {
   const name   = $('reg-name').value.trim();
   const gameid = $('reg-gameid').value.trim();
+  const phone  = $('reg-phone').value.trim();
   const pin    = $('reg-pin').value;
   const pin2   = $('reg-pin2').value;
   const errEl  = $('reg-err');
@@ -457,15 +479,16 @@ async function doRegister() {
     const pinHash = await sha256(pin);
 
     const { data, error } = await db.from('members').insert({
-      name, gameid, team: selectedTeam, fp, pin_hash: pinHash, points: 0, events: 0
+      name, gameid, phone: phone || null, team: selectedTeam, fp, pin_hash: pinHash, points: 0, events: 0
     }).select().single();
 
     if (error) throw error;
     currentMember = data;
     localStorage.setItem('pgo_member_id', data.id);
     goTo('home');
+    applyDeepLink();
   } catch(e) {
-    errEl.textContent = e.message.includes('gameid') ? 'Trainer Name นี้ถูกใช้งานแล้ว' : e.message;
+    errEl.textContent = (e.message && e.message.includes('gameid')) ? 'Trainer Name นี้ถูกใช้งานแล้ว' : e.message;
     errEl.style.display = 'block';
   } finally {
     $('reg-btn').disabled = false;
@@ -485,11 +508,16 @@ async function doLoginWithPin() {
     const { data, error } = await db.from('members').select('*').ilike('gameid', gameid).eq('pin_hash', pinHash).maybeSingle();
     if (!data) throw new Error('ชื่อในเกมหรือ PIN ไม่ถูกต้อง');
 
+    if (data.suspended_until && new Date(data.suspended_until) > new Date()) {
+      throw new Error('บัญชีนี้ถูกระงับการใช้งานชั่วคราว กรุณาติดต่อแอดมิน');
+    }
+
     const fp = getFingerprint();
     await db.from('members').update({ fp }).eq('id', data.id);
     currentMember = data;
     localStorage.setItem('pgo_member_id', data.id);
     goTo('home');
+    applyDeepLink();
   } catch(e) {
     errEl.textContent = e.message;
     errEl.style.display = 'block';
@@ -498,7 +526,19 @@ async function doLoginWithPin() {
 
 // ── Home & Activities ─────────────────────────────────────────
 async function loadHome() {
-  if (!currentMember) return;
+  if (!currentMember && db) {
+    const savedId = localStorage.getItem('pgo_member_id');
+    if (savedId) {
+      const { data } = await db.from('members').select('*').eq('id', savedId).maybeSingle();
+      if (data) currentMember = data;
+    }
+  }
+
+  if (!currentMember) {
+    goTo('register');
+    return;
+  }
+
   const m = currentMember;
   $('home-greeting').textContent = 'สวัสดี ' + m.name;
   $('u-name').textContent   = m.name;
@@ -507,7 +547,7 @@ async function loadHome() {
   $('u-points').textContent = m.points || 0;
 
   const av = $('u-avatar');
-  av.textContent = m.name.charAt(0).toUpperCase();
+  av.textContent = (m.name || '?').charAt(0).toUpperCase();
   av.className = `avatar av-${m.team}`;
 
   const b = getBadge(m.events || 0);
@@ -518,9 +558,18 @@ async function loadHome() {
   actListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">กำลังโหลดกิจกรรม...</div>';
 
   try {
-    const { data: acts } = await db.from('activities').select('*').eq('is_open', true).order('created_at', { ascending: false });
-    activeActivities = acts || [];
+    const [{ data: acts }, { data: allMembers }] = await Promise.all([
+      db.from('activities').select('*').eq('is_open', true).order('created_at', { ascending: false }),
+      db.from('members').select('id,points').order('points', { ascending: false })
+    ]);
 
+    // Update Rank
+    if (allMembers) {
+      const myRank = allMembers.findIndex(x => x.id === m.id) + 1;
+      $('u-rank').textContent = myRank > 0 ? `#${myRank}` : '#-';
+    }
+
+    activeActivities = acts || [];
     if (!activeActivities.length) {
       actListEl.innerHTML = '<div class="empty-state"><span class="empty-icon">🍃</span>ไม่มีกิจกรรมที่เปิดอยู่ในขณะนี้</div>';
       return;
@@ -539,7 +588,7 @@ async function loadHome() {
             <span class="badge badge-live">Live</span>
           </div>
           <p style="font-size:12px;color:var(--muted);margin:4px 0 12px">
-            ⭐ +${a.pts_per_checkin||20} แต้ม · รัศมี ${a.radius||100}m · โหมด: ${mode.toUpperCase()}
+            ⭐ +${a.pts_per_checkin || 20} แต้ม · รัศมี ${a.radius || 100}m · รูปแบบ: ${mode.toUpperCase()}
           </p>
           ${actionBtn}
         </div>
@@ -595,6 +644,7 @@ async function triggerGpsCheckin() {
   try {
     const dist = haversine(currentGpsPos.latitude, currentGpsPos.longitude, selectedActivity.lat, selectedActivity.lng);
     const pts = selectedActivity.pts_per_checkin || 20;
+    const fp = currentMember.fp || getFingerprint();
 
     const { error } = await db.from('checkins').insert({
       member_id: currentMember.id,
@@ -604,7 +654,7 @@ async function triggerGpsCheckin() {
       member_team: currentMember.team,
       activity_name: selectedActivity.name,
       pts_earned: pts,
-      fp: currentMember.fp || getFingerprint(),
+      fp: fp,
       distance: dist,
       accuracy: currentGpsPos.accuracy || 0
     });
@@ -728,7 +778,6 @@ function renderLb(list) {
     return;
   }
 
-  // Podium (Top 3)
   const top3 = list.slice(0, 3);
   podiumWrap.innerHTML = `
     <div class="lb-podium">
@@ -757,7 +806,6 @@ function renderLb(list) {
     </div>
   `;
 
-  // Rows (Rank 4+)
   const rest = list.slice(3);
   listWrap.innerHTML = rest.map((m, idx) => {
     const isMe = currentMember && currentMember.id === m.id;
@@ -767,7 +815,7 @@ function renderLb(list) {
         <div class="lb-av av-${m.team}">${m.name.charAt(0)}</div>
         <div class="lb-info">
           <div class="lb-info-name">${m.name}</div>
-          <div class="lb-info-sub">${m.gameid} · ${m.events||0} กิจกรรม</div>
+          <div class="lb-info-sub">${m.gameid} · ${m.events || 0} กิจกรรม</div>
         </div>
         <div class="lb-pts">${m.points} pt</div>
       </div>
@@ -777,20 +825,44 @@ function renderLb(list) {
 
 // ── App Init ──────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const goParam = urlParams.get('go');
+  if (goParam) sessionStorage.setItem('pgo_deeplink', goParam);
+
   setTimeout(async () => {
     const savedId = localStorage.getItem('pgo_member_id');
-    if (savedId && db) {
+    const fp = getFingerprint();
+
+    if (IS_CONFIGURED && db) {
       try {
-        const { data } = await db.from('members').select('*').eq('id', savedId).single();
-        if (data) {
-          currentMember = data;
+        let member = null;
+        if (savedId) {
+          const { data } = await db.from('members').select('*').eq('id', savedId).maybeSingle();
+          member = data;
+        }
+        if (!member && fp) {
+          const { data } = await db.from('members').select('*').eq('fp', fp).maybeSingle();
+          member = data;
+        }
+
+        if (member) {
+          if (member.suspended_until && new Date(member.suspended_until) > new Date()) {
+            alert('บัญชีนี้ถูกระงับการใช้งานชั่วคราว');
+            goTo('login-pin');
+            return;
+          }
+          currentMember = member;
+          localStorage.setItem('pgo_member_id', member.id);
           goTo('home');
+          applyDeepLink();
           return;
         }
-      } catch(e) {}
+      } catch(e) {
+        console.warn('Auto-login error:', e);
+      }
     }
     goTo('register');
-  }, 1200);
+  }, 1000);
 });
 </script>
 </body>
