@@ -1522,7 +1522,7 @@ async function loadDrawHistory() {
   } catch(e) { tbody.innerHTML='<tr><td colspan="7" class="empty">เกิดข้อผิดพลาด</td></tr>'; }
 }
 
-function doDraw() {
+async function doDraw() {
   const prizeRows=getPrizeList();
   if (!prizeRows.length) { alert('กรุณาเพิ่มรายการรางวัลก่อน'); return; }
   if (!drawCandidates.length) { alert('ไม่มีผู้มีสิทธิ์สุ่ม'); return; }
