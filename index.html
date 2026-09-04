@@ -229,6 +229,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       </div>
     </div>
     <button class="btn btn-primary" id="reg-btn" onclick="doRegister()">✅ ลงทะเบียน</button>
+    <div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">
+      <div style="flex:1;height:1px;background:#f0f0f0"></div>
+      <span style="font-size:11px;color:#9ca3af">หรือ</span>
+      <div style="flex:1;height:1px;background:#f0f0f0"></div>
+    </div>
+    <button class="btn btn-secondary" onclick="signInWithGoogle('register')" style="gap:10px">
+      <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:18px;height:18px"> ลงทะเบียนด้วย Gmail
+    </button>
     <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px;line-height:1.5">ข้อมูลจะถูกผูกกับอุปกรณ์นี้<br>เพื่อป้องกันการกรอกข้อมูลแทนกัน</p>
     <button class="btn btn-secondary mt-8" onclick="goScreen('login')">← กลับ</button>
   </div>
@@ -255,6 +263,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div style="text-align:center;margin-top:12px">
       <button onclick="goScreen('forgot-pin')" style="background:none;border:none;font-size:13px;color:var(--red);cursor:pointer;text-decoration:underline">🔓 ลืม PIN?</button>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;margin:18px 0 4px">
+      <div style="flex:1;height:1px;background:#f0f0f0"></div>
+      <span style="font-size:11px;color:#9ca3af">หรือ</span>
+      <div style="flex:1;height:1px;background:#f0f0f0"></div>
+    </div>
+    <button class="btn btn-secondary" onclick="signInWithGoogle('login')" style="gap:10px">
+      <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:18px;height:18px"> เข้าสู่ระบบด้วย Gmail
+    </button>
     <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0">
       <p style="font-size:13px;color:#6b7280;margin-bottom:8px">ยังไม่มีบัญชี?</p>
       <button class="btn btn-secondary" onclick="goScreen('register')" style="width:auto;padding:8px 24px">📝 ลงทะเบียนสมาชิกใหม่</button>
@@ -285,6 +301,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="pts-box"><div class="pts-num" id="home-events">0</div><div class="pts-label">กิจกรรม</div></div>
         <div class="pts-box"><div class="pts-num" style="color:var(--red)" id="home-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
         <div class="pts-box"><div class="pts-num" id="home-rank">#-</div><div class="pts-label">อันดับ</div></div>
+      </div>
+      <div id="gmail-link-row" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #f3f4f6">
+        <div id="gmail-linked" style="display:none;font-size:12px;color:#15803d">
+          <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:14px;height:14px;vertical-align:middle"> ✅ Gmail: <span id="gmail-email"></span>
+        </div>
+        <button id="gmail-link-btn" onclick="signInWithGoogle('link')" class="btn btn-secondary" style="padding:8px 14px;font-size:12px;gap:8px;display:flex;margin-top:0">
+          <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:14px;height:14px"> เชื่อม Gmail เพื่อ login ข้ามอุปกรณ์
+        </button>
       </div>
     </div>
     <div class="sec-label">กิจกรรมที่เปิดอยู่</div>
@@ -378,6 +402,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       </div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5">Admin จะได้รับการแจ้งเตือน และติดต่อเพื่อรีเซ็ต PIN ให้คุณ</p>
       <button class="btn btn-primary" id="fp-btn" onclick="requestPinReset()">📨 ส่งคำขอ Reset PIN</button>
+      <div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">
+        <div style="flex:1;height:1px;background:#f0f0f0"></div>
+        <span style="font-size:11px;color:#9ca3af">หรือ ถ้ามี Gmail ผูกไว้</span>
+        <div style="flex:1;height:1px;background:#f0f0f0"></div>
+      </div>
+      <button class="btn btn-secondary" onclick="signInWithGoogle('reset_pin')" style="gap:10px">
+        <img src="https://www.svgrepo.com/show/475656/google-color.svg" style="width:18px;height:18px"> ยืนยันตัวตนผ่าน Gmail + ตั้ง PIN ใหม่
+      </button>
     </div>
     <button class="btn btn-secondary mt-8" onclick="goScreen('login')">← กลับ</button>
   </div>
@@ -545,6 +577,15 @@ async function doRegister() {
       currentMember = member;
       lsSet('member_fp', fp);
     }
+    // เชื่อม Gmail อัตโนมัติถ้าสมัครหลัง Google OAuth
+    const pendingEmail = localStorage.getItem('google_email_pending');
+    if (pendingEmail && IS_CONFIGURED && db && currentMember?.id) {
+      localStorage.removeItem('google_email_pending');
+      const { data: linkResult } = await db.rpc('link_google_to_member', {
+        p_member_id: currentMember.id, p_email: pendingEmail
+      });
+      if (linkResult?.ok) currentMember.email = pendingEmail;
+    }
     await renderHome();
     goScreen('home');
   } catch(e) {
@@ -625,6 +666,107 @@ async function requestPinReset() {
   }
 }
 
+// ===== Gmail OAuth =====
+async function signInWithGoogle(intent) {
+  if (!IS_CONFIGURED || !db) { alert('ระบบยังไม่ได้ตั้งค่า Supabase'); return; }
+  localStorage.setItem('oauth_intent', intent);
+  // เก็บ member_id ไว้ถ้าเป็น intent 'link'
+  if (intent === 'link' && currentMember) {
+    localStorage.setItem('oauth_member_id', currentMember.id);
+  }
+  await db.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+      scopes: 'email profile'
+    }
+  });
+}
+
+async function handleGoogleCallback() {
+  if (!IS_CONFIGURED || !db) return false;
+  const { data: { session } } = await db.auth.getSession();
+  if (!session || session.user?.app_metadata?.provider !== 'google') return false;
+
+  const intent  = localStorage.getItem('oauth_intent');
+  const email   = session.user.email;
+  const name    = session.user.user_metadata?.full_name || session.user.user_metadata?.name || '';
+  const fp      = getFingerprint();
+  localStorage.removeItem('oauth_intent');
+
+  if (intent === 'login' || intent === 'register') {
+    showLoader('กำลังตรวจสอบ...');
+    try {
+      const { data: member } = await db.rpc('login_with_google', { p_email: email, p_fp: fp });
+      if (member) {
+        // สมาชิกเจอแล้ว → login
+        currentMember = member;
+        lsSet('member_fp', fp);
+        localStorage.removeItem('pgo_logged_out');
+        await renderHome();
+        goScreen('home');
+      } else {
+        // สมาชิกยังไม่มี → ไปหน้า register พร้อม pre-fill
+        document.getElementById('reg-name').value = name;
+        document.getElementById('reg-gameid').value = '';
+        // เก็บ email ไว้ใช้ตอน register สำเร็จ
+        localStorage.setItem('google_email_pending', email);
+        goScreen('register');
+        hideLoader();
+        // แจ้งให้รู้ว่า Gmail พร้อมแล้ว
+        const errEl = document.getElementById('reg-err');
+        errEl.style.display = 'block';
+        errEl.style.background = '#f0fdf4';
+        errEl.style.borderColor = '#bbf7d0';
+        errEl.style.color = '#15803d';
+        errEl.textContent = `✅ Gmail: ${email} — กรอกข้อมูลให้ครบแล้วลงทะเบียน`;
+      }
+    } catch(e) { hideLoader(); }
+    return true;
+  }
+
+  if (intent === 'link') {
+    const memberId = localStorage.getItem('oauth_member_id') || currentMember?.id;
+    localStorage.removeItem('oauth_member_id');
+    if (!memberId) { goScreen('login'); return true; }
+    showLoader('กำลังเชื่อม Gmail...');
+    const { data } = await db.rpc('link_google_to_member', { p_member_id: memberId, p_email: email });
+    hideLoader();
+    if (data?.ok) {
+      if (currentMember) currentMember.email = email;
+      await renderHome();
+      goScreen('home');
+    } else {
+      alert(data?.message || 'เชื่อม Gmail ไม่สำเร็จ');
+      goScreen('home');
+    }
+    return true;
+  }
+
+  if (intent === 'reset_pin') {
+    hideLoader();
+    // แสดง dialog ตั้ง PIN ใหม่
+    const newPin = prompt(`✅ ยืนยัน Gmail แล้ว: ${email}\n\nป้อน PIN ใหม่ 6 หลัก:`);
+    if (!newPin || !/^\d{6}$/.test(newPin)) { goScreen('login'); return true; }
+    const newPinHash = await sha256(newPin);
+    showLoader('กำลังรีเซ็ต PIN...');
+    const { data } = await db.rpc('reset_pin_via_email', {
+      p_email: email, p_new_pin_hash: newPinHash, p_fp: fp
+    });
+    hideLoader();
+    if (data?.ok) {
+      alert(`✅ รีเซ็ต PIN เรียบร้อย!\nPIN ใหม่ของคุณ: ${newPin}`);
+      goScreen('login');
+    } else {
+      alert(data?.message || 'Gmail นี้ไม่ได้ผูกกับบัญชีใดในระบบ');
+      goScreen('forgot-pin');
+    }
+    return true;
+  }
+
+  return false;
+}
+
 // ===== Home =====
 async function renderHome() {
   const fp = getFingerprint();
@@ -670,6 +812,23 @@ async function renderHome() {
   document.getElementById('reg-gameid').value = member.gameid;
   // PIN fields intentionally left blank (don't pre-fill for security)
   pickTeam(member.team, document.querySelector('.team-opt.'+member.team));
+
+  // แสดง/ซ่อนปุ่มเชื่อม Gmail
+  const gmailRow     = document.getElementById('gmail-link-row');
+  const gmailLinked  = document.getElementById('gmail-linked');
+  const gmailBtn     = document.getElementById('gmail-link-btn');
+  const gmailEmail   = document.getElementById('gmail-email');
+  if (gmailRow) {
+    gmailRow.style.display = 'block';
+    if (member.email) {
+      gmailLinked.style.display = 'block';
+      if (gmailEmail) gmailEmail.textContent = member.email;
+      if (gmailBtn)   gmailBtn.style.display = 'none';
+    } else {
+      gmailLinked.style.display = 'none';
+      if (gmailBtn) gmailBtn.style.display = 'flex';
+    }
+  }
 
   await renderActivityList(member);
 }
@@ -1255,6 +1414,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(location.search);
   const actId  = params.get('activity');
   setTimeout(async () => {
+    // ตรวจ Google OAuth callback ก่อน
+    if (IS_CONFIGURED && db && localStorage.getItem('oauth_intent')) {
+      const handled = await handleGoogleCallback();
+      if (handled) return;
+    }
+
     const fp = getFingerprint();
     let hasMember = false;
     if (IS_CONFIGURED && db) {
