@@ -505,6 +505,12 @@ async function doLogout() {
 
 // ==================== QR Scanner ====================
 let _scanStream = null, _scanRaf = null, _scanCooldown = false, _lastScannedToken = '';
+let _barcodeDetector = null;
+
+// สร้าง BarcodeDetector ถ้า browser รองรับ (Chrome/Android รองรับ)
+if ('BarcodeDetector' in window) {
+  try { _barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] }); } catch(e) {}
+}
 
 function toggleQRScanner() {
   if (_scanStream) stopQRScanner();
@@ -521,7 +527,6 @@ async function startQRScanner() {
   infoEl.className   = 'info-box';
   $('scan-result').style.display = 'none';
 
-  // ลอง constraint ตามลำดับ — facingMode environment บังคับกล้องหลัง
   const tryList = [
     { video: { facingMode: { exact: 'environment' } } },
     { video: { facingMode: 'environment' } },
@@ -531,30 +536,30 @@ async function startQRScanner() {
   let stream = null;
   for (const c of tryList) {
     try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
-    catch(e) { /* ลองตัวถัดไป */ }
+    catch(e) {}
   }
 
   if (!stream) {
     infoEl.className   = 'err-box';
-    infoEl.textContent = '❌ ไม่สามารถเปิดกล้องได้ — กรุณาอนุญาตสิทธิ์กล้องในเบราว์เซอร์';
+    infoEl.textContent = '❌ ไม่สามารถเปิดกล้องได้ — กรุณาอนุญาตสิทธิ์กล้อง';
     return;
   }
 
-  _scanStream = stream;
+  _scanStream       = stream;
   _lastScannedToken = '';
   _scanCooldown     = false;
 
   video.srcObject = stream;
-  wrap.style.display = 'block';
+  wrap.style.display    = 'block';
   toggleBtn.textContent = '⏹ หยุดกล้อง';
   toggleBtn.className   = 'btn btn-danger';
 
-  // รอ metadata → play → เริ่ม scan loop
   video.onloadedmetadata = async () => {
     try { await video.play(); } catch(e) {}
-    const s = stream.getVideoTracks()[0]?.getSettings();
-    infoEl.textContent = `📷 กำลังสแกน...${s ? ` (${s.width}×${s.height})` : ''} ให้สมาชิกแสดง QR`;
-    _scanRaf = requestAnimationFrame(scanFrame);
+    const s   = stream.getVideoTracks()[0]?.getSettings();
+    const api = _barcodeDetector ? 'BarcodeDetector' : 'jsQR';
+    infoEl.textContent = `📷 สแกนอยู่ [${api}]${s ? ` ${s.width}×${s.height}` : ''} — ให้สมาชิกแสดง QR`;
+    _scanRaf = requestAnimationFrame(scanLoop);
   };
 }
 
@@ -571,36 +576,43 @@ function stopQRScanner() {
   if (info)      { info.className = 'info-box'; info.textContent = 'กด "เปิดกล้อง" แล้วให้สมาชิกแสดง QR Code ที่หน้าจอมือถือ'; }
 }
 
-function scanFrame() {
+async function scanLoop() {
   if (!_scanStream) return;
-  const video  = $('qr-video');
-  const canvas = $('qr-canvas-scan');
+  const video = $('qr-video');
 
-  // ยังไม่มีข้อมูลเฟรม — รอ
-  if (!video || !canvas || video.readyState < 2 || video.videoWidth === 0) {
-    _scanRaf = requestAnimationFrame(scanFrame);
+  if (!video || video.readyState < 2 || video.videoWidth === 0) {
+    _scanRaf = requestAnimationFrame(scanLoop);
     return;
   }
 
-  // วาด full resolution ลง canvas — ไม่ scale ลง เพื่อให้ jsQR เห็น QR ชัด
-  canvas.width  = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0);
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  try {
+    let detected = null;
 
-  if (window.jsQR) {
-    const code = jsQR(imgData.data, imgData.width, imgData.height, {
-      inversionAttempts: 'attemptBoth'
-    });
-    if (code && code.data && code.data !== _lastScannedToken && !_scanCooldown) {
-      _lastScannedToken = code.data;
-      _scanCooldown     = true;
-      processScanToken(code.data);
-      return; // หยุดรอผล
+    if (_barcodeDetector) {
+      // ── วิธี 1: BarcodeDetector (native, เร็ว, แม่นบน Android Chrome) ──
+      const codes = await _barcodeDetector.detect(video);
+      if (codes.length > 0) detected = codes[0].rawValue;
+    } else if (window.jsQR) {
+      // ── วิธี 2: jsQR fallback ──
+      const canvas = $('qr-canvas-scan');
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+      if (code) detected = code.data;
     }
-  }
-  _scanRaf = requestAnimationFrame(scanFrame);
+
+    if (detected && detected !== _lastScannedToken && !_scanCooldown) {
+      _lastScannedToken = detected;
+      _scanCooldown     = true;
+      processScanToken(detected);
+      return; // หยุด loop รอผล — processScanToken จะ resume
+    }
+  } catch(e) { /* ข้าม frame ที่ error */ }
+
+  _scanRaf = requestAnimationFrame(scanLoop);
 }
 
 // fallback: แอดมินพิมพ์ token เอง
@@ -608,7 +620,7 @@ function manualScanToken() {
   const input = $('manual-token-input');
   const token = (input?.value || '').trim();
   if (!token) return;
-  input.value = '';
+  input.value       = '';
   _lastScannedToken = '';
   _scanCooldown     = true;
   processScanToken(token);
@@ -655,9 +667,9 @@ async function processScanToken(token) {
 
   // Resume scan หลัง 3 วินาที
   setTimeout(() => {
-    _scanCooldown = false;
+    _scanCooldown     = false;
     _lastScannedToken = '';
-    if (_scanStream) _scanRaf = requestAnimationFrame(scanFrame);
+    if (_scanStream) _scanRaf = requestAnimationFrame(scanLoop);
   }, 3000);
 }
 
