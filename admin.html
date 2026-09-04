@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PGO Saraburi — Admin Panel</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <style>
@@ -210,9 +212,12 @@ select.form-input{padding:10px 14px}
 <div id="screen-main" class="hidden">
 <div class="app">
   <div class="topbar">
-    <div>
-      <h1>🎮 PGO Saraburi Admin</h1>
-      <p id="top-info">ยินดีต้อนรับ</p>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="logo.png" alt="logo" style="width:36px;height:36px;border-radius:50%;border:2px solid rgba(255,255,255,0.4)">
+      <div>
+        <h1>PGO Saraburi Admin</h1>
+        <p id="top-info">ยินดีต้อนรับ</p>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <span title="Realtime" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;opacity:0.85"><span id="rt-dot" style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span>Live</span>
