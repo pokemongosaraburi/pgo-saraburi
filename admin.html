@@ -7,113 +7,144 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
+/* ═══ RESET & VARIABLES ═══ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --red:#E8274B;--red-dark:#c41e3a;--red-glow:rgba(232,39,75,0.2);
+  --text:#111827;--muted:#6b7280;--border:#e5e7eb;
+  --radius:16px;--shadow:0 4px 20px rgba(0,0,0,0.08);
+}
+
+/* ═══ BASE ═══ */
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f3f4f6;min-height:100vh}
-.app{max-width:900px;margin:0 auto;padding:16px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;min-height:100vh}
+.app{max-width:960px;margin:0 auto;padding:16px}
 
-/* Forms */
-.form-group{margin-bottom:13px}
-.form-label{font-size:12px;color:#6b7280;display:block;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
-.form-input{width:100%;padding:11px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:14px;color:#111;outline:none;transition:border-color 0.2s}
-.form-input:focus{border-color:#E8274B}
+/* ═══ FORMS ═══ */
+.form-group{margin-bottom:15px}
+.form-label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.form-input{width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:12px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.form-input:focus{border-color:var(--red);box-shadow:0 0 0 4px var(--red-glow)}
+select.form-input{padding:10px 14px}
 
-/* Buttons */
-.btn{width:100%;padding:12px;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s}
-.btn-primary{background:#E8274B;color:#fff}
-.btn-primary:hover{background:#c9223f}
-.btn-primary:disabled{background:#f9a8b8;cursor:not-allowed}
-.btn-secondary{background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}
-.btn-sm{padding:6px 12px;font-size:12px;border-radius:7px;width:auto;display:inline-flex;align-items:center;gap:4px}
-.btn-danger{background:#fee2e2;color:#dc2626;border:1px solid #fecdd3}
-.btn-green{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}
+/* ═══ BUTTONS ═══ */
+.btn{width:100%;padding:13px;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 4px 16px var(--red-glow)}
+.btn-primary:hover{box-shadow:0 6px 22px var(--red-glow)}
+.btn-primary:disabled{background:#f9a8b8;box-shadow:none;cursor:not-allowed;transform:none}
+.btn-secondary{background:#fff;color:#374151;border:1.5px solid var(--border);box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.btn-sm{padding:7px 14px;font-size:12px;border-radius:9px;width:auto}
+.btn-danger{background:#fee2e2;color:#dc2626;border:1.5px solid #fecdd3}
+.btn-green{background:#dcfce7;color:#15803d;border:1.5px solid #bbf7d0}
 
-/* Topbar */
-.topbar{background:#E8274B;color:#fff;border-radius:12px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.topbar h1{font-size:17px;font-weight:700}
-.topbar p{font-size:11px;opacity:0.85;margin-top:1px}
-.role-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.rb-superadmin{background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4)}
-.rb-admin{background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3)}
-.rb-staff{background:rgba(255,255,255,0.15);color:#fff;border:1px solid rgba(255,255,255,0.2)}
+/* ═══ TOPBAR ═══ */
+.topbar{background:linear-gradient(135deg,var(--red) 0%,var(--red-dark) 100%);color:#fff;border-radius:var(--radius);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;box-shadow:0 6px 24px var(--red-glow)}
+.topbar h1{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.topbar p{font-size:11px;opacity:.8;margin-top:2px}
+.role-badge{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.rb-superadmin{background:rgba(255,255,255,.28);color:#fff;border:1px solid rgba(255,255,255,.4)}
+.rb-admin{background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.rb-staff{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.22)}
 
-/* Tabs */
-.tabs{display:flex;gap:4px;background:#fff;border-radius:10px;padding:5px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);flex-wrap:wrap}
-.tab{flex:1;min-width:60px;padding:8px 4px;border:none;background:none;border-radius:7px;font-size:12px;font-weight:600;color:#6b7280;cursor:pointer;transition:all 0.15s;text-align:center}
-.tab:hover{background:#f9fafb;color:#374151}
-.tab.active{background:#E8274B;color:#fff}
+/* ═══ TABS ═══ */
+.tabs{display:flex;gap:4px;background:#fff;border-radius:14px;padding:6px;margin-bottom:16px;box-shadow:var(--shadow);flex-wrap:wrap}
+.tab{flex:1;min-width:60px;padding:10px 6px;border:none;background:none;border-radius:10px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .18s;text-align:center}
+.tab:hover{background:#f9fafb;color:var(--text)}
+.tab.active{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 4px 12px var(--red-glow)}
 .tab-panel{display:none}
-.tab-panel.active{display:block}
+.tab-panel.active{display:block;animation:fadeIn .22s ease}
 
-/* Cards */
-.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
-.card h2{font-size:14px;font-weight:700;color:#111;margin-bottom:12px}
+/* ═══ CARDS ═══ */
+.card{background:#fff;border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{font-size:15px;font-weight:800;color:var(--text);margin-bottom:14px;letter-spacing:-.2px}
 
-/* Stat grid */
-.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
-.stat-box{background:#fff;border-radius:10px;padding:14px 10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
-.stat-num{font-size:24px;font-weight:800;color:#111}
-.stat-label{font-size:11px;color:#9ca3af;margin-top:2px;font-weight:600}
+/* ═══ STAT GRID ═══ */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat-box{background:#fff;border-radius:var(--radius);padding:18px 10px;text-align:center;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--red),var(--red-dark))}
+.stat-num{font-size:28px;font-weight:900;color:var(--text);letter-spacing:-1.5px;line-height:1}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
 
-/* Table */
+/* ═══ TABLE ═══ */
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
-.tbl th{padding:9px 10px;text-align:left;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid #f0f0f0}
-.tbl td{padding:9px 10px;border-bottom:1px solid #f9fafb;color:#374151;vertical-align:middle}
+.tbl th{padding:10px 12px;text-align:left;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #f0f0f0}
+.tbl td{padding:10px 12px;border-bottom:1px solid #f9fafb;color:#374151;vertical-align:middle}
 .tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:#f9fafb}
-.tbl-wrap{overflow-x:auto}
+.tbl tr:hover td{background:#fafafa}
+.tbl-wrap{overflow-x:auto;border-radius:10px}
 
-/* Badges */
-.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+/* ═══ BADGES ═══ */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
 .b-mystic{background:#dbeafe;color:#1d4ed8}
 .b-valor{background:#fee2e2;color:#dc2626}
 .b-instinct{background:#fef9c3;color:#ca8a04}
 .b-open{background:#dcfce7;color:#15803d}
 .b-closed{background:#f3f4f6;color:#9ca3af}
-.b-superadmin{background:#fef3c7;color:#d97706}
+.b-superadmin{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#d97706}
 .b-admin{background:#dbeafe;color:#1d4ed8}
 .b-staff{background:#f3f4f6;color:#6b7280}
 
-/* Alerts */
-.err-box{background:#fef2f2;border:1px solid #fecdd3;color:#dc2626;padding:10px 13px;border-radius:9px;font-size:13px;margin-bottom:12px}
-.info-box{background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;padding:10px 13px;border-radius:9px;font-size:13px;margin-bottom:12px}
+/* ═══ ALERTS ═══ */
+.err-box{background:#fef2f2;border:1.5px solid #fecdd3;color:#dc2626;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:13px;font-weight:500}
+.info-box{background:#eff6ff;border:1.5px solid #bfdbfe;color:#1d4ed8;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:13px}
 
-/* Loading */
-.spin{width:28px;height:28px;border:3px solid #f0f0f0;border-top-color:#E8274B;border-radius:50%;animation:spin 0.8s linear infinite;margin:30px auto;display:block}
+/* ═══ LOADING ═══ */
+.spin{width:30px;height:30px;border:3px solid #f0f0f0;border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite;margin:34px auto;display:block}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* Draw */
-.draw-stage{text-align:center;padding:20px 0}
-.draw-slot{font-size:32px;font-weight:800;color:#111;min-height:50px}
-.draw-winner-card{background:#dcfce7;border-radius:12px;padding:14px;text-align:center;margin:12px 0}
+/* ═══ DRAW ═══ */
+.draw-stage{text-align:center;padding:24px 0}
+.draw-slot{font-size:34px;font-weight:900;color:var(--text);min-height:52px;letter-spacing:-1px}
+.draw-winner-card{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:var(--radius);padding:16px;text-align:center;margin:14px 0;border:1.5px solid #bbf7d0;box-shadow:0 4px 18px rgba(74,222,128,.2)}
 
-/* Misc */
-.live-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block;animation:blink 1.4s ease-in-out infinite;margin-right:4px}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-.empty{text-align:center;padding:28px;color:#9ca3af;font-size:13px}
+/* ═══ MISC ═══ */
+.live-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;display:inline-block;animation:blink 1.4s ease-in-out infinite;margin-right:5px;box-shadow:0 0 6px rgba(34,197,94,.5)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.empty{text-align:center;padding:32px;color:var(--muted);font-size:13px}
 .hidden{display:none!important}
 .flex-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
-/* QR Scanner */
-#qr-video-wrap{position:relative;width:100%;margin:0 0 14px;background:#000;line-height:0;overflow:hidden}
+/* ═══ LOGIN SCREEN ═══ */
+#screen-login,#screen-noaccess{background:linear-gradient(160deg,#E8274B 0%,#a01428 50%,#150510 100%)}
+
+/* ═══ QR SCANNER ═══ */
+#qr-video-wrap{position:relative;width:100%;margin:0 0 16px;background:#000;line-height:0;overflow:hidden;border-radius:14px;box-shadow:0 8px 28px rgba(0,0,0,.4)}
 #qr-video{width:100%;display:block}
-#qr-scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;aspect-ratio:1/1;border:2px solid rgba(255,255,255,0.7);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);pointer-events:none;overflow:hidden}
-#qr-scan-box::before,#qr-scan-box::after{content:'';position:absolute;width:18%;height:18%;border-color:#E8274B;border-style:solid}
+#qr-scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;aspect-ratio:1/1;border:2px solid rgba(255,255,255,.7);border-radius:16px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);pointer-events:none;overflow:hidden}
+#qr-scan-box::before,#qr-scan-box::after{content:'';position:absolute;width:18%;height:18%;border-color:var(--red);border-style:solid}
 #qr-scan-box::before{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
 #qr-scan-box::after{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
-#qr-scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(to right,transparent,#E8274B,transparent);animation:scanline 2s ease-in-out infinite}
+#qr-scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(to right,transparent,var(--red),transparent);animation:scanline 2s ease-in-out infinite}
 @keyframes scanline{0%{top:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:600px){
+  .stat-grid{grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat-num{font-size:22px}
+  .stat-box{padding:14px 6px}
+  .tabs{gap:3px;padding:4px}
+  .tab{font-size:11px;padding:8px 3px}
+  .topbar{padding:13px 14px}
+  .topbar h1{font-size:15px}
+  .app{padding:12px}
+}
+@media(min-width:768px){
+  body{background:linear-gradient(145deg,#E8274B 0%,#a01428 40%,#150510 100%);padding:24px 20px;min-height:100vh}
+  .app{background:#f0f2f5;border-radius:24px;padding:20px;box-shadow:0 32px 80px rgba(0,0,0,.45)}
+  .stat-num{font-size:32px}
+}
 </style>
 </head>
 <body>
 
 <!-- LOGIN -->
-<div id="screen-login" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;padding:32px 28px;width:100%;max-width:380px;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-    <div style="text-align:center;margin-bottom:22px">
-      <div style="font-size:40px">🎮</div>
-      <h1 style="font-size:22px;font-weight:800;color:#111;margin-top:6px">PGO Saraburi</h1>
-      <p style="font-size:13px;color:#6b7280;margin-top:3px">Admin Panel</p>
+<div id="screen-login" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:24px;padding:36px 30px;width:100%;max-width:390px;box-shadow:0 32px 80px rgba(0,0,0,.35)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#E8274B,#a01428);display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 16px;box-shadow:0 8px 24px rgba(232,39,75,.35)">🎮</div>
+      <h1 style="font-size:24px;font-weight:900;color:#111;letter-spacing:-.5px">PGO Saraburi</h1>
+      <p style="font-size:13px;color:#6b7280;margin-top:4px;font-weight:600">Admin Panel</p>
     </div>
     <div class="err-box hidden" id="login-err"></div>
     <div class="form-group">
@@ -125,17 +156,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <input class="form-input" id="login-pw" type="password" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn btn-primary" id="login-btn" onclick="doLogin()">🔐 เข้าสู่ระบบ</button>
-    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:12px">เข้าถึงได้เฉพาะทีมงานที่ได้รับอนุญาต</p>
+    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:14px">เข้าถึงได้เฉพาะทีมงานที่ได้รับอนุญาต</p>
   </div>
 </div>
 
 <!-- NO ACCESS -->
-<div id="screen-noaccess" class="hidden" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;padding:36px 28px;max-width:380px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
-    <div style="font-size:48px;margin-bottom:12px">🚫</div>
-    <h2 style="font-size:18px;font-weight:700;margin-bottom:8px">ไม่มีสิทธิ์เข้าถึง</h2>
-    <p style="font-size:13px;color:#6b7280;margin-bottom:20px">บัญชีนี้ไม่ได้รับอนุญาตให้เข้าใช้ Admin Panel<br>กรุณาติดต่อ Superadmin</p>
-    <button class="btn btn-secondary" onclick="doLogout()">← ออกจากระบบ</button>
+<div id="screen-noaccess" class="hidden" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:24px;padding:40px 30px;max-width:390px;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.35)">
+    <div style="width:80px;height:80px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;font-size:40px;margin:0 auto 18px">🚫</div>
+    <h2 style="font-size:20px;font-weight:800;margin-bottom:10px;color:#111">ไม่มีสิทธิ์เข้าถึง</h2>
+    <p style="font-size:13px;color:#6b7280;margin-bottom:22px;line-height:1.7">บัญชีนี้ไม่ได้รับอนุญาตให้เข้าใช้ Admin Panel<br>กรุณาติดต่อ Superadmin</p>
+    <button class="btn btn-secondary" onclick="doLogout()" style="max-width:220px;margin:0 auto">← ออกจากระบบ</button>
   </div>
 </div>
 

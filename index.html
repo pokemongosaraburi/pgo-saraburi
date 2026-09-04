@@ -7,116 +7,142 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f0f0;min-height:100vh;display:flex;justify-content:center}
-.app{width:100%;max-width:430px;min-height:100vh;background:#fff;display:flex;flex-direction:column;position:relative}
+/* ═══ RESET & VARIABLES ═══ */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --red:#E8274B;--red-dark:#c41e3a;--red-glow:rgba(232,39,75,0.22);
+  --text:#111827;--muted:#6b7280;--border:#e5e7eb;
+  --radius:16px;--shadow:0 4px 20px rgba(0,0,0,0.09);
+}
+
+/* ═══ BASE ═══ */
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5;min-height:100vh;display:flex;justify-content:center;align-items:flex-start}
+.app{width:100%;max-width:480px;min-height:100vh;background:#f0f2f5;display:flex;flex-direction:column;position:relative}
 .screen{display:none;flex-direction:column;flex:1;min-height:100vh}
 .screen.active{display:flex}
 
-/* Loading overlay */
-.loading-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:12px}
+/* ═══ LOADING ═══ */
+.loading-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.92);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:14px}
 .loading-overlay.hidden{display:none}
-.spin{width:36px;height:36px;border:3px solid #f0f0f0;border-top-color:#E8274B;border-radius:50%;animation:spin 0.8s linear infinite}
+.spin{width:38px;height:38px;border:3px solid #f0f0f0;border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* Splash */
-#splash{background:#E8274B;align-items:center;justify-content:center;color:#fff}
-.ball-wrap{width:90px;height:90px;border-radius:50%;border:4px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;animation:spin 2s linear infinite;margin-bottom:20px}
-.ball-inner{width:68px;height:68px;border-radius:50%;background:rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:38px}
-#splash h1{font-size:24px;font-weight:700;color:#fff;margin-bottom:6px}
-#splash p{font-size:14px;opacity:0.85}
+/* ═══ SPLASH ═══ */
+#splash{background:linear-gradient(160deg,#E8274B 0%,#a01428 55%,#1a0610 100%);align-items:center;justify-content:center;color:#fff;gap:0}
+.ball-wrap{width:110px;height:110px;border-radius:50%;border:3px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;animation:spin 3s linear infinite;margin-bottom:28px;box-shadow:0 0 60px rgba(255,100,100,0.3)}
+.ball-inner{width:82px;height:82px;border-radius:50%;background:rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;font-size:44px}
+#splash h1{font-size:30px;font-weight:900;letter-spacing:-0.5px;margin-bottom:8px}
+#splash p{font-size:14px;opacity:0.7;letter-spacing:.5px}
 
-/* Topbar */
-.topbar{background:#E8274B;padding:14px 16px;color:#fff;flex-shrink:0}
-.topbar h1{font-size:17px;font-weight:700;color:#fff;margin-bottom:2px}
-.topbar p{font-size:12px;opacity:0.82;margin:0}
+/* ═══ TOPBAR ═══ */
+.topbar{background:linear-gradient(135deg,var(--red) 0%,var(--red-dark) 100%);padding:20px 18px 16px;color:#fff;flex-shrink:0;box-shadow:0 4px 20px var(--red-glow)}
+.topbar h1{font-size:19px;font-weight:800;color:#fff;margin-bottom:3px;letter-spacing:-.3px}
+.topbar p{font-size:12px;opacity:.75}
 
-/* Content */
-.content{flex:1;overflow-y:auto;padding:16px;padding-bottom:24px}
+/* ═══ CONTENT ═══ */
+.content{flex:1;overflow-y:auto;padding:16px;padding-bottom:32px}
 
-/* Forms */
-.form-group{margin-bottom:14px}
-.form-label{font-size:12px;color:#6b7280;display:block;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
-.form-input{width:100%;padding:11px 13px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:15px;color:#111;background:#fff;outline:none;transition:border-color 0.2s;-webkit-appearance:none}
-.form-input:focus{border-color:#E8274B}
+/* ═══ SECTION LABEL ═══ */
+.sec-label{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px}
 
-/* Team selector */
-.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.team-opt{border:2px solid #e5e7eb;border-radius:12px;padding:12px 6px;text-align:center;cursor:pointer;transition:all 0.15s;user-select:none}
-.team-opt .t-icon{font-size:26px;display:block;margin-bottom:5px}
-.team-opt .t-name{font-size:11px;font-weight:700}
+/* ═══ FORMS ═══ */
+.form-group{margin-bottom:16px}
+.form-label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.form-input{width:100%;padding:13px 15px;border:2px solid var(--border);border-radius:13px;font-size:15px;color:var(--text);background:#fff;outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.form-input:focus{border-color:var(--red);box-shadow:0 0 0 4px var(--red-glow)}
+
+/* ═══ TEAM SELECTOR ═══ */
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.team-opt{border:2px solid var(--border);border-radius:14px;padding:14px 6px;text-align:center;cursor:pointer;transition:all .18s;user-select:none;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.team-opt:active{transform:scale(.96)}
+.team-opt .t-icon{font-size:28px;display:block;margin-bottom:6px}
+.team-opt .t-name{font-size:12px;font-weight:800}
 .team-opt.mystic .t-name{color:#2563eb}
-.team-opt.valor  .t-name{color:#dc2626}
+.team-opt.valor .t-name{color:#dc2626}
 .team-opt.instinct .t-name{color:#ca8a04}
-.team-opt.selected.mystic{border-color:#3b82f6;background:#eff6ff}
-.team-opt.selected.valor{border-color:#ef4444;background:#fef2f2}
-.team-opt.selected.instinct{border-color:#eab308;background:#fefce8}
+.team-opt.selected.mystic{border-color:#3b82f6;background:linear-gradient(135deg,#eff6ff,#dbeafe);box-shadow:0 4px 14px rgba(59,130,246,.2)}
+.team-opt.selected.valor{border-color:#ef4444;background:linear-gradient(135deg,#fef2f2,#fee2e2);box-shadow:0 4px 14px rgba(239,68,68,.2)}
+.team-opt.selected.instinct{border-color:#eab308;background:linear-gradient(135deg,#fefce8,#fef9c3);box-shadow:0 4px 14px rgba(234,179,8,.2)}
 
-/* Buttons */
-.btn{width:100%;padding:13px;border:none;border-radius:11px;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:center;gap:7px}
-.btn:active{transform:scale(0.975)}
-.btn-primary{background:#E8274B;color:#fff}
-.btn-primary:disabled{background:#f9a8b8;cursor:not-allowed;transform:none}
-.btn-secondary{background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;font-weight:600}
-.mt-8{margin-top:8px}
+/* ═══ BUTTONS ═══ */
+.btn{width:100%;padding:14px;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:.1px}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 4px 16px var(--red-glow)}
+.btn-primary:hover{box-shadow:0 6px 22px var(--red-glow)}
+.btn-primary:disabled{background:#f9a8b8;box-shadow:none;cursor:not-allowed;transform:none}
+.btn-secondary{background:#fff;color:#374151;border:1.5px solid var(--border);font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.mt-8{margin-top:10px}
 
-/* Cards */
-.card{background:#fff;border:1.5px solid #f0f0f0;border-radius:14px;padding:14px;margin-bottom:10px}
-.card-activity{border-color:#fecdd3;background:#fffafa}
+/* ═══ CARDS ═══ */
+.card{background:#fff;border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow);border:none}
+.card-activity{border-left:4px solid var(--red)}
 
-/* User badge */
-.user-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0}
-.av-mystic{background:#dbeafe;color:#1d4ed8}
-.av-valor{background:#fee2e2;color:#dc2626}
-.av-instinct{background:#fef9c3;color:#ca8a04}
+/* ═══ USER / PROFILE ═══ */
+.user-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.avatar{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.av-mystic{background:linear-gradient(135deg,#dbeafe,#93c5fd);color:#1d4ed8}
+.av-valor{background:linear-gradient(135deg,#fee2e2,#fca5a5);color:#dc2626}
+.av-instinct{background:linear-gradient(135deg,#fef9c3,#fde68a);color:#ca8a04}
 
-/* Points */
-.pts-row{display:flex;gap:8px}
-.pts-box{flex:1;background:#f9fafb;border-radius:10px;padding:9px 6px;text-align:center;border:1px solid #f0f0f0}
-.pts-num{font-size:20px;font-weight:800;color:#111}
-.pts-label{font-size:10px;color:#9ca3af;margin-top:1px;font-weight:600}
+/* ═══ POINTS ═══ */
+.pts-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pts-box{background:linear-gradient(135deg,#f9fafb,#f3f4f6);border-radius:12px;padding:12px 6px;text-align:center;border:1.5px solid #f0f0f0}
+.pts-num{font-size:22px;font-weight:900;color:var(--text);letter-spacing:-1px}
+.pts-label{font-size:10px;color:var(--muted);margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.3px}
 
-/* GPS */
-.gps-wrap{text-align:center;padding:20px 16px 16px}
-.gps-ring{width:100px;height:100px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;border:3px solid;transition:all 0.4s}
-.gps-ring.checking{border-color:#93c5fd;background:#eff6ff;animation:glow 1.4s ease-in-out infinite}
-.gps-ring.ok{border-color:#86efac;background:#f0fdf4}
-.gps-ring.fail{border-color:#fca5a5;background:#fef2f2}
-@keyframes glow{0%,100%{opacity:1}50%{opacity:0.65}}
-.gps-icon{font-size:42px}
-.gps-title{font-size:16px;font-weight:700;color:#111;margin-bottom:5px}
-.gps-detail{font-size:13px;color:#6b7280;margin-bottom:16px}
+/* ═══ GPS ═══ */
+.gps-wrap{display:flex;flex-direction:column;align-items:center;padding:28px 16px 20px}
+.gps-ring{width:120px;height:120px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;border:4px solid;transition:all .4s}
+.gps-ring.checking{border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#dbeafe);animation:glow 1.5s ease-in-out infinite}
+.gps-ring.ok{border-color:#4ade80;background:linear-gradient(135deg,#f0fdf4,#dcfce7);box-shadow:0 0 0 8px rgba(74,222,128,.15)}
+.gps-ring.fail{border-color:#f87171;background:linear-gradient(135deg,#fef2f2,#fee2e2)}
+@keyframes glow{0%,100%{box-shadow:0 0 0 6px rgba(147,197,253,.2)}50%{box-shadow:0 0 0 14px rgba(147,197,253,.08)}}
+.gps-icon{font-size:48px}
+.gps-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;text-align:center}
+.gps-detail{font-size:13px;color:var(--muted);margin-bottom:18px;text-align:center;line-height:1.6}
 
-/* Badges */
+/* ═══ BADGES ═══ */
 .badge{display:inline-flex;align-items:center;gap:3px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
 .badge-ok{background:#dcfce7;color:#15803d}
 .badge-warn{background:#fef9c3;color:#854d0e}
 .badge-red{background:#fee2e2;color:#dc2626}
 .badge-blue{background:#dbeafe;color:#1d4ed8}
-.badge-live{background:#E8274B;color:#fff}
+.badge-live{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 2px 8px var(--red-glow)}
 
-/* Error */
-.err-box{background:#fef2f2;border:1px solid #fecdd3;color:#dc2626;padding:10px 13px;border-radius:9px;font-size:13px;margin-bottom:12px}
+/* ═══ ERROR ═══ */
+.err-box{background:#fef2f2;border:1.5px solid #fecdd3;color:#dc2626;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:14px;font-weight:500;line-height:1.5}
 
-/* Success */
-.success-wrap{align-items:center;justify-content:center;padding:28px 20px;text-align:center;flex:1}
-.success-icon-big{width:84px;height:84px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:44px;margin:0 auto 16px}
-.distance-info{background:#f0fdf4;border-radius:9px;padding:9px 12px;font-size:12px;color:#15803d;font-weight:600;margin-top:10px}
+/* ═══ SUCCESS ═══ */
+.success-wrap{align-items:center;justify-content:center;padding:36px 20px;text-align:center;flex:1;background:linear-gradient(160deg,#f0fdf4 0%,#f0f2f5 100%)}
+.success-icon-big{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#dcfce7,#86efac);display:flex;align-items:center;justify-content:center;font-size:48px;margin:0 auto 20px;box-shadow:0 8px 28px rgba(74,222,128,.35)}
+.distance-info{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:12px;padding:11px 14px;font-size:12px;color:#15803d;font-weight:600;margin-top:12px;border:1.5px solid #bbf7d0}
 
-/* Empty state */
-.empty-state{text-align:center;padding:36px 20px;color:#9ca3af}
-.empty-icon{font-size:52px;margin-bottom:10px}
+/* ═══ EMPTY STATE ═══ */
+.empty-state{text-align:center;padding:44px 20px;color:var(--muted)}
+.empty-icon{font-size:58px;margin-bottom:12px;display:block}
 
-/* Footer */
-.foot{text-align:center;padding:14px;font-size:12px;color:#9ca3af;border-top:1px solid #f0f0f0;margin-top:auto}
-.foot a{color:#E8274B;text-decoration:none;font-weight:600}
-.sec-label{font-size:13px;font-weight:700;color:#111;margin-bottom:9px}
+/* ═══ FOOTER ═══ */
+.foot{text-align:center;padding:16px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);margin-top:auto;background:#fff}
+.foot a{color:var(--red);text-decoration:none;font-weight:700}
 
-/* Config warning */
-.config-warn{background:#fef9c3;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#854d0e;line-height:1.6}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-@keyframes popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
+/* ═══ CONFIG WARNING ═══ */
+.config-warn{background:#fef9c3;border:1.5px solid #fde68a;border-radius:12px;padding:13px;margin-bottom:14px;font-size:12px;color:#854d0e;line-height:1.6}
+
+/* ═══ ANIMATIONS ═══ */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(.72)}to{opacity:1;transform:scale(1)}}
+
+/* ═══ TABLET & DESKTOP ═══ */
+@media(min-width:768px){
+  body{background:linear-gradient(145deg,#E8274B 0%,#a01428 45%,#150510 100%);align-items:center;min-height:100vh;padding:28px 16px}
+  .app{border-radius:28px;min-height:auto;max-height:calc(100vh - 56px);overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.55);margin:0 auto}
+  .screen{min-height:auto}
+  .content{max-height:calc(100vh - 200px)}
+  #splash{border-radius:28px}
+}
+@media(min-width:1024px){
+  .app{max-width:430px}
+}
 </style>
 </head>
 <body>
@@ -212,7 +238,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="pts-row">
         <div class="pts-box"><div class="pts-num" id="home-events">0</div><div class="pts-label">กิจกรรม</div></div>
-        <div class="pts-box"><div class="pts-num" style="color:#E8274B" id="home-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
+        <div class="pts-box"><div class="pts-num" style="color:var(--red)" id="home-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
         <div class="pts-box"><div class="pts-num" id="home-rank">#-</div><div class="pts-label">อันดับ</div></div>
       </div>
     </div>
@@ -230,17 +256,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <h1 id="qr-act-title">🎫 แสดง QR Code</h1>
     <p id="qr-act-sub">ให้แอดมินสแกน</p>
   </div>
-  <div class="content" style="display:flex;flex-direction:column;align-items:center;padding-top:24px">
-    <div style="font-size:13px;color:#6b7280;margin-bottom:14px">แสดง QR Code นี้ให้แอดมินสแกน</div>
-    <div id="qr-canvas" style="padding:16px;background:#fff;border-radius:16px;box-shadow:0 2px 16px rgba(0,0,0,0.12);margin-bottom:20px;display:inline-block"></div>
-    <div style="margin-bottom:6px">
-      <div id="qr-countdown" style="font-size:44px;font-weight:800;color:#E8274B;text-align:center;line-height:1">90</div>
-      <div style="font-size:12px;color:#9ca3af;text-align:center;margin-top:4px">วินาที ก่อนหมดอายุ</div>
+  <div class="content" style="display:flex;flex-direction:column;align-items:center;padding-top:20px">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px;text-align:center">แสดง QR Code นี้ให้แอดมินสแกน</p>
+    <div id="qr-canvas" style="padding:18px;background:#fff;border-radius:20px;box-shadow:0 8px 32px rgba(0,0,0,0.14);margin-bottom:24px;display:inline-block"></div>
+    <div style="text-align:center;margin-bottom:6px">
+      <div id="qr-countdown" style="font-size:52px;font-weight:900;color:var(--red);line-height:1;letter-spacing:-2px">90</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">วินาที ก่อนหมดอายุ</div>
     </div>
-    <div id="qr-status-msg" style="font-size:14px;color:#6b7280;margin:16px 0;text-align:center">⏳ รอแอดมินสแกน...</div>
+    <div id="qr-status-msg" style="font-size:14px;color:var(--muted);margin:18px 0;text-align:center;font-weight:500">⏳ รอแอดมินสแกน...</div>
     <div class="err-box" id="qr-err" style="display:none;width:100%"></div>
     <button class="btn btn-secondary" id="qr-cancel-btn" onclick="cancelQR()">← ยกเลิก</button>
-    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">QR จะหมดอายุใน 90 วินาที<br>หากหมดอายุ กลับไปกดเช็คอินใหม่</p>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.7">QR จะหมดอายุใน 90 วินาที<br>หากหมดอายุ กลับไปกดเช็คอินใหม่</p>
   </div>
 </div>
 
@@ -281,7 +307,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="pts-row" style="margin-bottom:10px">
         <div class="pts-box"><div class="pts-num" id="succ-events">0</div><div class="pts-label">กิจกรรม</div></div>
-        <div class="pts-box"><div class="pts-num" style="color:#E8274B" id="succ-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
+        <div class="pts-box"><div class="pts-num" style="color:var(--red)" id="succ-pts">0</div><div class="pts-label">แต้มสะสม</div></div>
       </div>
       <div class="distance-info" id="succ-dist"></div>
     </div>
