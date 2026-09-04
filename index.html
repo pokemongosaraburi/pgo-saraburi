@@ -6,6 +6,7 @@
 <title>PGO Saraburi — กิจกรรม</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- Load Supabase & QRCode.js -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -182,6 +183,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <body>
 <div class="app">
 
+<!-- GLOBAL LOADER -->
 <div class="loading-overlay hidden" id="global-loader">
   <svg class="pokeball-spin" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <circle cx="50" cy="50" r="48" fill="white" stroke="#222" stroke-width="4"/>
@@ -193,14 +195,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div style="font-size:13px;color:#6b7280" id="loader-text">กำลังโหลด...</div>
 </div>
 
-<!-- SPLASH -->
+<!-- SPLASH SCREEN -->
 <div class="screen active" id="splash">
   <img src="logo.png" alt="PGO Saraburi" style="width:160px;height:160px;border-radius:50%;margin-bottom:20px;animation:spin 6s linear infinite;box-shadow:0 0 60px rgba(255,100,100,0.4)">
   <h1>PGO Saraburi</h1>
   <p>ระบบจัดการกิจกรรม</p>
 </div>
 
-<!-- REGISTER -->
+<!-- REGISTER SCREEN -->
 <div class="screen" id="register">
   <div class="topbar">
     <h1>🎮 ลงทะเบียนสมาชิก</h1>
@@ -243,7 +245,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 </div>
 
-<!-- LOGIN WITH PIN -->
+<!-- LOGIN WITH PIN SCREEN -->
 <div class="screen" id="login-pin">
   <div class="topbar">
     <h1>🔐 เข้าสู่ระบบด้วย PIN</h1>
@@ -264,7 +266,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 </div>
 
-<!-- HOME / ACTIVITIES -->
+<!-- HOME / ACTIVITIES SCREEN -->
 <div class="screen" id="home">
   <div class="topbar">
     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -329,7 +331,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 </div>
 
-<!-- LEADERBOARD -->
+<!-- LEADERBOARD SCREEN -->
 <div class="screen" id="leaderboard">
   <div class="topbar">
     <h1>🏆 อันดับสมาชิก</h1>
@@ -363,7 +365,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
 <script>
 // =====================================================
-// SUPABASE CONFIG
+// 1. SUPABASE CONFIGURATION
 // =====================================================
 const SUPABASE_URL      = 'https://mywgmpeirhuzeglzofso.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable__g2KWcUU1hOY8hpvE3EupQ_81szTRiy';
@@ -371,10 +373,17 @@ const SUPABASE_ANON_KEY = 'sb_publishable__g2KWcUU1hOY8hpvE3EupQ_81szTRiy';
 const IS_CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT');
 let db = null;
 if (IS_CONFIGURED) {
-  const { createClient } = window.supabase;
-  db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  try {
+    const { createClient } = window.supabase;
+    db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch(e) {
+    console.error("Supabase initialization failed:", e);
+  }
 }
 
+// =====================================================
+// 2. CONSTANTS & HELPERS
+// =====================================================
 const BADGES = [
   { min:50, cls:'ach-champion', icon:'👑', label:'Champion' },
   { min:30, cls:'ach-diamond',  icon:'💎', label:'Diamond'  },
@@ -383,7 +392,11 @@ const BADGES = [
   { min:3,  cls:'ach-bronze',   icon:'🥉', label:'Bronze'   },
   { min:1,  cls:'ach-newcomer', icon:'🌱', label:'Newcomer' },
 ];
-function getBadge(events) { return BADGES.find(b=>(events||0)>=b.min)||null; }
+
+function getBadge(events) {
+  if (events == null) return null;
+  return BADGES.find(b => events >= b.min) || null;
+}
 
 let currentMember = null;
 let activeActivities = [];
@@ -402,6 +415,7 @@ function goTo(screenId) {
   if (screenId === 'leaderboard') loadLeaderboard();
 }
 
+// Anti-Cheat: Generate unique Device ID
 function getFingerprint() {
   const parts = [
     navigator.userAgent,
@@ -419,11 +433,13 @@ function getFingerprint() {
   return 'fp_' + (h >>> 0).toString(36);
 }
 
+// Security: Hash PIN locally before sending to DB
 async function sha256(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+// Geo: Calculate distance between 2 GPS coordinates
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000, toRad = x => x * Math.PI / 180;
   const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
@@ -431,7 +447,7 @@ function haversine(lat1, lon1, lat2, lon2) {
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// ── Deep-Link Handler ─────────────────────────────────────────
+// Handle Custom URL params for Activities
 function applyDeepLink() {
   const params = new URLSearchParams(window.location.search);
   const go = params.get('go') || sessionStorage.getItem('pgo_deeplink');
@@ -441,7 +457,9 @@ function applyDeepLink() {
   }
 }
 
-// ── Register & Login ──────────────────────────────────────────
+// =====================================================
+// 3. REGISTRATION & LOGIN LOGIC
+// =====================================================
 let selectedTeam = '';
 function pickTeam(t, el) {
   selectedTeam = t;
@@ -470,6 +488,10 @@ async function doRegister() {
     errEl.textContent = 'รหัส PIN ทั้ง 2 ช่องไม่ตรงกัน';
     errEl.style.display = 'block'; return;
   }
+  if (!db) {
+    errEl.textContent = 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้';
+    errEl.style.display = 'block'; return;
+  }
 
   $('reg-btn').disabled = true;
   $('reg-btn').textContent = 'กำลังลงทะเบียน...';
@@ -488,6 +510,7 @@ async function doRegister() {
     goTo('home');
     applyDeepLink();
   } catch(e) {
+    console.error("Register Error:", e);
     errEl.textContent = (e.message && e.message.includes('gameid')) ? 'Trainer Name นี้ถูกใช้งานแล้ว' : e.message;
     errEl.style.display = 'block';
   } finally {
@@ -503,34 +526,47 @@ async function doLoginWithPin() {
   errEl.style.display = 'none';
 
   if (!gameid || !pin) { errEl.textContent = 'กรุณากรอกชื่อในเกมและ PIN'; errEl.style.display = 'block'; return; }
+  if (!db) { errEl.textContent = 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'; errEl.style.display = 'block'; return; }
+
   try {
     const pinHash = await sha256(pin);
     const { data, error } = await db.from('members').select('*').ilike('gameid', gameid).eq('pin_hash', pinHash).maybeSingle();
     if (!data) throw new Error('ชื่อในเกมหรือ PIN ไม่ถูกต้อง');
 
+    // ตรวจสอบการโดนระงับบัญชี (Suspended)
     if (data.suspended_until && new Date(data.suspended_until) > new Date()) {
       throw new Error('บัญชีนี้ถูกระงับการใช้งานชั่วคราว กรุณาติดต่อแอดมิน');
     }
 
     const fp = getFingerprint();
-    await db.from('members').update({ fp }).eq('id', data.id);
+    // Update fp in background, ignore error if it fails
+    db.from('members').update({ fp }).eq('id', data.id).then(); 
+    
     currentMember = data;
     localStorage.setItem('pgo_member_id', data.id);
     goTo('home');
     applyDeepLink();
   } catch(e) {
+    console.error("Login Error:", e);
     errEl.textContent = e.message;
     errEl.style.display = 'block';
   }
 }
 
-// ── Home & Activities ─────────────────────────────────────────
+// =====================================================
+// 4. HOME & ACTIVITY RENDERING
+// =====================================================
 async function loadHome() {
-  if (!currentMember && db) {
+  if (!db) { goTo('register'); return; }
+
+  // Fallback to fetch latest data if session exists
+  if (!currentMember) {
     const savedId = localStorage.getItem('pgo_member_id');
     if (savedId) {
-      const { data } = await db.from('members').select('*').eq('id', savedId).maybeSingle();
-      if (data) currentMember = data;
+      try {
+        const { data } = await db.from('members').select('*').eq('id', savedId).maybeSingle();
+        if (data) currentMember = data;
+      } catch(e) { console.error("Auto-login error:", e); }
     }
   }
 
@@ -540,15 +576,15 @@ async function loadHome() {
   }
 
   const m = currentMember;
-  $('home-greeting').textContent = 'สวัสดี ' + m.name;
-  $('u-name').textContent   = m.name;
-  $('u-gameid').textContent = m.gameid;
+  $('home-greeting').textContent = 'สวัสดี ' + (m.name || '');
+  $('u-name').textContent   = m.name || 'ไม่มีชื่อ';
+  $('u-gameid').textContent = m.gameid || 'ไม่ระบุ';
   $('u-events').textContent = m.events || 0;
   $('u-points').textContent = m.points || 0;
 
   const av = $('u-avatar');
   av.textContent = (m.name || '?').charAt(0).toUpperCase();
-  av.className = `avatar av-${m.team}`;
+  av.className = `avatar av-${m.team || 'mystic'}`;
 
   const b = getBadge(m.events || 0);
   $('u-badge-wrap').innerHTML = b ? `<div class="ach-badge ${b.cls}"><span class="ach-icon">${b.icon}</span> ${b.label}</div>` : '';
@@ -564,9 +600,11 @@ async function loadHome() {
     ]);
 
     // Update Rank
-    if (allMembers) {
+    if (allMembers && allMembers.length > 0) {
       const myRank = allMembers.findIndex(x => x.id === m.id) + 1;
       $('u-rank').textContent = myRank > 0 ? `#${myRank}` : '#-';
+    } else {
+      $('u-rank').textContent = '#-';
     }
 
     activeActivities = acts || [];
@@ -575,6 +613,7 @@ async function loadHome() {
       return;
     }
 
+    // Render Activity Cards
     actListEl.innerHTML = activeActivities.map(a => {
       const mode = a.checkin_mode || 'qr';
       const actionBtn = mode === 'gps'
@@ -584,7 +623,7 @@ async function loadHome() {
       return `
         <div class="card card-activity">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <h3 style="font-size:15px;font-weight:800;color:var(--text)">${a.name}</h3>
+            <h3 style="font-size:15px;font-weight:800;color:var(--text)">${a.name || 'กิจกรรมไม่ระบุชื่อ'}</h3>
             <span class="badge badge-live">Live</span>
           </div>
           <p style="font-size:12px;color:var(--muted);margin:4px 0 12px">
@@ -595,24 +634,29 @@ async function loadHome() {
       `;
     }).join('');
   } catch(e) {
+    console.error("Load Home Error:", e);
     actListEl.innerHTML = '<div class="err-box">โหลดกิจกรรมไม่สำเร็จ: ' + e.message + '</div>';
   }
 }
 
-// ── GPS Mode ──────────────────────────────────────────────────
+// =====================================================
+// 5. GPS CHECK-IN LOGIC
+// =====================================================
 function startGpsCheckin(actId) {
   selectedActivity = activeActivities.find(a => a.id === actId);
   if (!selectedActivity) return;
+  
   goTo('checkin-gps');
   $('gps-act-name').textContent = selectedActivity.name;
   $('gps-ring').className = 'gps-ring checking';
   $('gps-status-title').textContent = 'กำลังค้นหาตำแหน่ง GPS...';
-  $('gps-status-desc').textContent = 'กรุณารอสักครู่...';
+  $('gps-status-desc').textContent = 'กรุณาอนุญาตสิทธิ์เข้าถึงตำแหน่งที่ตั้ง และรอสักครู่...';
   $('gps-action-btn').style.display = 'none';
 
   if (!navigator.geolocation) {
     $('gps-ring').className = 'gps-ring fail';
     $('gps-status-title').textContent = 'อุปกรณ์ไม่รองรับ GPS';
+    $('gps-status-desc').textContent = 'กรุณาอัปเดตเบราว์เซอร์หรือตรวจสอบการตั้งค่า';
     return;
   }
 
@@ -639,8 +683,10 @@ function startGpsCheckin(actId) {
 }
 
 async function triggerGpsCheckin() {
+  if (!db || !currentMember || !selectedActivity || !currentGpsPos) return;
   const btn = $('gps-action-btn');
   btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  
   try {
     const dist = haversine(currentGpsPos.latitude, currentGpsPos.longitude, selectedActivity.lat, selectedActivity.lng);
     const pts = selectedActivity.pts_per_checkin || 20;
@@ -660,7 +706,9 @@ async function triggerGpsCheckin() {
     });
 
     if (error) {
-      if (error.message.includes('unique') || error.code === '23505') throw new Error('คุณเช็คอินกิจกรรมนี้ไปแล้ว');
+      if (error.message.includes('unique') || error.code === '23505') {
+        throw new Error('คุณเช็คอินกิจกรรมนี้ไปแล้ว (1 ไอดี ต่อ 1 กิจกรรม)');
+      }
       throw error;
     }
 
@@ -668,22 +716,26 @@ async function triggerGpsCheckin() {
     $('succ-dist').textContent = `ระยะห่างจุดกิจกรรม: ${dist} เมตร`;
     goTo('checkin-success');
   } catch(e) {
+    console.error("GPS Checkin Error:", e);
     alert('เกิดข้อผิดพลาด: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = 'ยืนยันการเช็คอิน';
   }
 }
 
-// ── QR Mode ───────────────────────────────────────────────────
+// =====================================================
+// 6. QR CODE CHECK-IN LOGIC
+// =====================================================
 async function startQrCheckin(actId) {
   selectedActivity = activeActivities.find(a => a.id === actId);
-  if (!selectedActivity) return;
+  if (!selectedActivity || !db || !currentMember) return;
 
   $('global-loader').classList.remove('hidden');
   $('loader-text').textContent = 'กำลังสร้าง QR Code...';
 
   try {
     const fp = currentMember.fp || getFingerprint();
+    // RPC call requires exact parameters defined in Supabase
     const { data, error } = await db.rpc('create_checkin_token', {
       p_fp: fp,
       p_activity_id: actId
@@ -697,8 +749,9 @@ async function startQrCheckin(actId) {
     $('global-loader').classList.add('hidden');
     showQrModal(data.token);
   } catch(e) {
+    console.error("QR Generate Error:", e);
     $('global-loader').classList.add('hidden');
-    alert(e.message);
+    alert(e.message || "เกิดข้อผิดพลาดในการสร้าง QR Code");
   }
 }
 
@@ -731,12 +784,17 @@ function showQrModal(token) {
 
   clearInterval(qrPollTimer);
   qrPollTimer = setInterval(async () => {
-    const { data } = await db.rpc('check_token_status', { p_token: token });
-    if (data && data.status === 'used') {
-      closeQrModal();
-      $('succ-msg').textContent = 'แอดมินสแกนยืนยันการเช็คอินเรียบร้อย!';
-      $('succ-dist').textContent = 'เช็คอินผ่าน QR Code หน้างาน';
-      goTo('checkin-success');
+    if(!db) return;
+    try {
+      const { data } = await db.rpc('check_token_status', { p_token: token });
+      if (data && data.status === 'used') {
+        closeQrModal();
+        $('succ-msg').textContent = 'แอดมินสแกนยืนยันการเช็คอินเรียบร้อย!';
+        $('succ-dist').textContent = 'เช็คอินผ่าน QR Code หน้างาน';
+        goTo('checkin-success');
+      }
+    } catch(e) {
+      console.warn("QR Poll Error", e);
     }
   }, 2500);
 }
@@ -747,16 +805,22 @@ function closeQrModal() {
   clearInterval(qrPollTimer);
 }
 
-// ── Leaderboard ───────────────────────────────────────────────
+// =====================================================
+// 7. LEADERBOARD
+// =====================================================
 let lbCache = [];
 async function loadLeaderboard() {
   const wrap = $('lb-list-wrap');
   wrap.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">กำลังโหลดอันดับ...</div>';
   try {
-    const { data } = await db.from('members').select('*').order('points', { ascending: false });
+    if (!db) throw new Error("ไม่สามารถเชื่อมต่อฐานข้อมูลได้");
+    const { data, error } = await db.from('members').select('*').order('points', { ascending: false });
+    if (error) throw error;
+    
     lbCache = data || [];
     renderLb(lbCache);
   } catch(e) {
+    console.error("Leaderboard Error:", e);
     wrap.innerHTML = '<div class="err-box">โหลดไม่สำเร็จ: ' + e.message + '</div>';
   }
 }
@@ -772,63 +836,69 @@ function renderLb(list) {
   const podiumWrap = $('lb-podium-wrap');
   const listWrap   = $('lb-list-wrap');
 
-  if (!list.length) {
+  if (!list || !list.length) {
     podiumWrap.innerHTML = '';
-    listWrap.innerHTML = '<div class="empty-state">ไม่มีข้อมูล</div>';
+    listWrap.innerHTML = '<div class="empty-state">ไม่มีข้อมูลสมาชิก</div>';
     return;
   }
 
+  // Podium (Top 3)
   const top3 = list.slice(0, 3);
   podiumWrap.innerHTML = `
     <div class="lb-podium">
       ${top3[1] ? `
         <div class="lb-pod second">
-          <div class="lb-pod-av av-${top3[1].team}">${top3[1].name.charAt(0)}</div>
-          <div class="lb-pod-name">${top3[1].name}</div>
-          <div class="lb-pod-pts">${top3[1].points} pt</div>
+          <div class="lb-pod-av av-${top3[1].team || 'mystic'}">${(top3[1].name||'?').charAt(0)}</div>
+          <div class="lb-pod-name">${top3[1].name || ''}</div>
+          <div class="lb-pod-pts">${top3[1].points || 0} pt</div>
           <div class="lb-pod-base"><span class="lb-rank-num">#2</span></div>
         </div>` : ''}
       ${top3[0] ? `
         <div class="lb-pod first">
           <div class="lb-pod-crown">👑</div>
-          <div class="lb-pod-av av-${top3[0].team}">${top3[0].name.charAt(0)}</div>
-          <div class="lb-pod-name">${top3[0].name}</div>
-          <div class="lb-pod-pts">${top3[0].points} pt</div>
+          <div class="lb-pod-av av-${top3[0].team || 'mystic'}">${(top3[0].name||'?').charAt(0)}</div>
+          <div class="lb-pod-name">${top3[0].name || ''}</div>
+          <div class="lb-pod-pts">${top3[0].points || 0} pt</div>
           <div class="lb-pod-base"><span class="lb-rank-num">#1</span></div>
         </div>` : ''}
       ${top3[2] ? `
         <div class="lb-pod third">
-          <div class="lb-pod-av av-${top3[2].team}">${top3[2].name.charAt(0)}</div>
-          <div class="lb-pod-name">${top3[2].name}</div>
-          <div class="lb-pod-pts">${top3[2].points} pt</div>
+          <div class="lb-pod-av av-${top3[2].team || 'mystic'}">${(top3[2].name||'?').charAt(0)}</div>
+          <div class="lb-pod-name">${top3[2].name || ''}</div>
+          <div class="lb-pod-pts">${top3[2].points || 0} pt</div>
           <div class="lb-pod-base"><span class="lb-rank-num">#3</span></div>
         </div>` : ''}
     </div>
   `;
 
+  // Rows (Rank 4+)
   const rest = list.slice(3);
   listWrap.innerHTML = rest.map((m, idx) => {
     const isMe = currentMember && currentMember.id === m.id;
     return `
       <div class="lb-row ${isMe ? 'me' : ''}">
         <div class="lb-rank">#${idx + 4}</div>
-        <div class="lb-av av-${m.team}">${m.name.charAt(0)}</div>
+        <div class="lb-av av-${m.team || 'mystic'}">${(m.name||'?').charAt(0)}</div>
         <div class="lb-info">
-          <div class="lb-info-name">${m.name}</div>
-          <div class="lb-info-sub">${m.gameid} · ${m.events || 0} กิจกรรม</div>
+          <div class="lb-info-name">${m.name || ''}</div>
+          <div class="lb-info-sub">${m.gameid || ''} · ${m.events || 0} กิจกรรม</div>
         </div>
-        <div class="lb-pts">${m.points} pt</div>
+        <div class="lb-pts">${m.points || 0} pt</div>
       </div>
     `;
   }).join('');
 }
 
-// ── App Init ──────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
+// =====================================================
+// 8. APP INITIALIZATION
+// =====================================================
+window.addEventListener('DOMContentLoaded', () => {
+  // Capture deep-link params
   const urlParams = new URLSearchParams(window.location.search);
   const goParam = urlParams.get('go');
   if (goParam) sessionStorage.setItem('pgo_deeplink', goParam);
 
+  // Auto-login sequence
   setTimeout(async () => {
     const savedId = localStorage.getItem('pgo_member_id');
     const fp = getFingerprint();
@@ -841,11 +911,13 @@ window.addEventListener('DOMContentLoaded', async () => {
           member = data;
         }
         if (!member && fp) {
+          // Attempt to match by Fingerprint if localstorage is cleared
           const { data } = await db.from('members').select('*').eq('fp', fp).maybeSingle();
           member = data;
         }
 
         if (member) {
+          // Check Suspension
           if (member.suspended_until && new Date(member.suspended_until) > new Date()) {
             alert('บัญชีนี้ถูกระงับการใช้งานชั่วคราว');
             goTo('login-pin');
@@ -861,6 +933,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.warn('Auto-login error:', e);
       }
     }
+    
+    // If auto-login fails or not configured, go to Register screen
     goTo('register');
   }, 1000);
 });
