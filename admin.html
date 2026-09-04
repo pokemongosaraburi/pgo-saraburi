@@ -95,14 +95,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .flex-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
 /* QR Scanner */
-#qr-video-wrap{position:relative;width:100%;max-width:320px;margin:0 auto 14px;border-radius:14px;overflow:hidden;background:#000;line-height:0}
-#qr-video{width:100%;display:block;border-radius:14px}
-#qr-scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:180px;height:180px;border:2px solid rgba(255,255,255,0.6);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);pointer-events:none}
-#qr-scan-box::before,#qr-scan-box::after{content:'';position:absolute;width:28px;height:28px;border-color:#E8274B;border-style:solid}
+#qr-video-wrap{position:relative;width:100%;margin:0 0 14px;background:#000;line-height:0;overflow:hidden}
+#qr-video{width:100%;display:block}
+#qr-scan-box{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70%;aspect-ratio:1/1;border:2px solid rgba(255,255,255,0.7);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,0.5);pointer-events:none;overflow:hidden}
+#qr-scan-box::before,#qr-scan-box::after{content:'';position:absolute;width:18%;height:18%;border-color:#E8274B;border-style:solid}
 #qr-scan-box::before{top:-2px;left:-2px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
 #qr-scan-box::after{bottom:-2px;right:-2px;border-width:0 3px 3px 0;border-radius:0 0 4px 0}
-#qr-scan-line{position:absolute;left:calc(50% - 90px);width:180px;height:2px;background:linear-gradient(to right,transparent,#E8274B,transparent);animation:scanline 2s ease-in-out infinite;top:50%}
-@keyframes scanline{0%{transform:translateY(-85px);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(85px);opacity:0}}
+#qr-scan-line{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(to right,transparent,#E8274B,transparent);animation:scanline 2s ease-in-out infinite}
+@keyframes scanline{0%{top:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
 </style>
 </head>
 <body>
@@ -346,8 +346,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="info-box" id="scan-info-msg">กด "เปิดกล้อง" แล้วให้สมาชิกแสดง QR Code ที่หน้าจอมือถือ</div>
       <div id="qr-video-wrap" style="display:none">
         <video id="qr-video" autoplay playsinline muted></video>
-        <div id="qr-scan-box"></div>
-        <div id="qr-scan-line"></div>
+        <div id="qr-scan-box"><div id="qr-scan-line"></div></div>
       </div>
       <canvas id="qr-canvas-scan" style="display:none"></canvas>
       <div style="text-align:center;margin-bottom:14px">
