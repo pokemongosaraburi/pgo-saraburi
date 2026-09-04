@@ -156,6 +156,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .lb-ftab{flex:1;padding:8px 4px;border:1.5px solid var(--border);border-radius:10px;background:#fff;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-align:center;transition:all .15s}
 .lb-ftab.active{border-color:var(--red);background:#fef2f2;color:var(--red)}
 
+/* ═══ ACHIEVEMENT BADGES ═══ */
+.ach-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:.3px;margin-top:4px}
+.ach-newcomer{background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0}
+.ach-bronze{background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa}
+.ach-silver{background:#f8fafc;color:#475569;border:1.5px solid #cbd5e1}
+.ach-gold{background:#fefce8;color:#a16207;border:1.5px solid #fde68a}
+.ach-diamond{background:linear-gradient(135deg,#f0f9ff,#e0f2fe);color:#0369a1;border:1.5px solid #7dd3fc}
+.ach-champion{background:linear-gradient(135deg,#fdf4ff,#fae8ff);color:#7e22ce;border:1.5px solid #d8b4fe}
+.ach-badge .ach-icon{font-size:13px}
 /* ═══ ANIMATIONS ═══ */
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes popIn{from{opacity:0;transform:scale(.72)}to{opacity:1;transform:scale(1)}}
@@ -261,6 +270,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           <div style="font-size:15px;font-weight:700;color:#111" id="home-name"></div>
           <div style="font-size:12px;color:#6b7280;margin:2px 0" id="home-gameid"></div>
           <span class="badge" id="home-team-badge"></span>
+          <span id="home-ach-badge" style="display:none"></span>
         </div>
         <button onclick="goScreen('register')" style="background:none;border:none;font-size:11px;color:#9ca3af;cursor:pointer">แก้ไข</button>
       </div>
@@ -582,6 +592,7 @@ async function renderHome() {
   document.getElementById('home-events').textContent = member.events||0;
   document.getElementById('home-pts').textContent = member.points||0;
   document.getElementById('home-rank').textContent = member._rank ? '#'+member._rank : '#-';
+  renderAchBadge(document.getElementById('home-ach-badge'), member.events||0);
 
   // Pre-fill register form for editing
   document.getElementById('reg-name').value = member.name;
@@ -1048,8 +1059,8 @@ function renderLeaderboard() {
         <div class="lb-rank">${medal}</div>
         <div class="lb-av ${av}">${(m.name||'').slice(0,2).toUpperCase()}</div>
         <div class="lb-info">
-          <div class="lb-info-name">${m.name}${isMe ? ' <span style="color:var(--red);font-size:10px">(คุณ)</span>' : ''}</div>
-          <div class="lb-info-sub">${m.gameid} · ${(TEAM_LABEL[m.team]||'')}</div>
+          <div class="lb-info-name">${m.name}${isMe ? ' <span style="color:var(--red);font-size:10px">(คุณ)</span>' : ''}${(()=>{const b=getBadge(m.events||0);return b?` <span style="font-size:11px">${b.icon}</span>`:''})()}</div>
+          <div class="lb-info-sub">${m.gameid} · ${(TEAM_LABEL[m.team]||'')} · ${m.events||0} กิจกรรม</div>
         </div>
         <div class="lb-pts">${m.points||0} <span style="font-size:10px;font-weight:600;color:var(--muted)">pt</span></div>
       </div>`;
@@ -1070,6 +1081,27 @@ function doLogout() {
   goScreen('register');
 }
 
+// ===== Achievement Badges =====
+const BADGES = [
+  { min:50, cls:'ach-champion', icon:'👑', label:'Champion'   },
+  { min:30, cls:'ach-diamond',  icon:'💎', label:'Diamond'    },
+  { min:15, cls:'ach-gold',     icon:'🥇', label:'Gold'       },
+  { min:7,  cls:'ach-silver',   icon:'🥈', label:'Silver'     },
+  { min:3,  cls:'ach-bronze',   icon:'🥉', label:'Bronze'     },
+  { min:1,  cls:'ach-newcomer', icon:'🌱', label:'Newcomer'   },
+];
+
+function getBadge(events) {
+  return BADGES.find(b => (events||0) >= b.min) || null;
+}
+
+function renderAchBadge(el, events) {
+  const b = getBadge(events);
+  if (!b || !el) return;
+  el.className = 'ach-badge ' + b.cls;
+  el.innerHTML = `<span class="ach-icon">${b.icon}</span>${b.label}`;
+  el.style.display = 'inline-flex';
+}
 // ===== Push Notifications =====
 const VAPID_PUBLIC_KEY = 'BKR7my2pD_BsOhUi0TewJfQ28eBGLkKv4wfkmLUfkV9lb5DgWRjR0dHjcJNEPgA_j5XwTq59cHOOOtWXoAjRNqg';
 const PUSH_EDGE_URL = IS_CONFIGURED
