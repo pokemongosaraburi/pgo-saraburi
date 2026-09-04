@@ -223,7 +223,7 @@ select.form-input{padding:10px 14px}
 
   <div class="tabs">
     <button class="tab active" id="tab-dashboard"  onclick="switchTab('dashboard')">📊 ภาพรวม</button>
-    <button class="tab"        id="tab-members"    onclick="switchTab('members')">👥 สมาชิก</button>
+    <button class="tab"        id="tab-members"    onclick="switchTab('members')">👥 สมาชิก <span id="pin-reset-badge" style="display:none;background:#dc2626;color:#fff;border-radius:20px;font-size:10px;font-weight:800;padding:1px 6px;margin-left:2px"></span></button>
     <button class="tab"        id="tab-activities" onclick="switchTab('activities')">🎯 กิจกรรม</button>
     <button class="tab"        id="tab-draw"       onclick="switchTab('draw')">🎁 สุ่มรางวัล</button>
     <button class="tab"        id="tab-scan"       onclick="switchTab('scan')">📷 สแกน QR</button>
@@ -268,6 +268,14 @@ select.form-input{padding:10px 14px}
 
   <!-- MEMBERS -->
   <div class="tab-panel" id="panel-members">
+    <!-- PIN Reset Requests -->
+    <div class="card" id="pin-resets-card" style="display:none;border-left:4px solid #dc2626">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0;color:#dc2626">🔑 คำขอ Reset PIN</h2>
+        <button class="btn btn-secondary btn-sm" onclick="loadPinResets()">↻</button>
+      </div>
+      <div id="pin-resets-list"></div>
+    </div>
     <div class="card">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
         <select id="filter-team" onchange="loadMembers()" style="padding:6px 10px;border:1px solid #e5e7eb;border-radius:7px;font-size:13px">
@@ -573,6 +581,7 @@ function bootAdmin() {
   if (currentRole==='staff')      { hide('tab-draw'); hide('act-form-card'); }
   loadDashboard();
   loadActivitiesForDraw();
+  loadPinResets();
   startRealtime();
 }
 
@@ -792,7 +801,7 @@ function switchTab(name) {
   $('tab-'+name).classList.add('active');
   $('panel-'+name).classList.add('active');
   if (name==='dashboard')  loadDashboard();
-  if (name==='members')    loadMembers();
+  if (name==='members')    { loadMembers(); loadPinResets(); }
   if (name==='activities') loadActivities();
   if (name==='draw')       loadDrawCandidates();
   if (name==='team')       loadTeam();
@@ -1598,6 +1607,48 @@ async function removeTeamMember(id) {
   try {
     if (IS_CONFIGURED && db) { await db.from('team_members').delete().eq('id',id); loadTeam(); }
   } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+}
+
+// ==================== PIN Reset Requests ====================
+async function loadPinResets() {
+  if (!IS_CONFIGURED || !db) return;
+  try {
+    const { data: reqs } = await db.rpc('get_pending_pin_resets');
+    const count = (reqs || []).length;
+    const badge = document.getElementById('pin-reset-badge');
+    const card  = document.getElementById('pin-resets-card');
+    const list  = document.getElementById('pin-resets-list');
+
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'inline';
+      card.style.display = 'block';
+      list.innerHTML = (reqs || []).map(r => {
+        const d = new Date(r.created_at);
+        const ds = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700">${r.gameid}</div>
+            <div style="font-size:11px;color:var(--muted)">ขอ reset เมื่อ ${ds}</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="adminSetNewPin('${r.member_id}','${r.gameid}','${r.id}')">🔑 Reset</button>
+        </div>`;
+      }).join('');
+    } else {
+      badge.style.display = 'none';
+      card.style.display = 'none';
+    }
+  } catch(e) { console.warn('loadPinResets:', e); }
+}
+
+async function adminSetNewPin(memberId, gameid, reqId) {
+  const newPin = prompt(`ตั้ง PIN ใหม่ให้ ${gameid}\n(ตัวเลข 6 หลัก):`);
+  if (!newPin || !/^\d{6}$/.test(newPin)) { alert('PIN ต้องเป็นตัวเลข 6 หลัก'); return; }
+  const hash = await sha256(newPin);
+  const { data, error } = await db.rpc('admin_reset_pin', { p_member_id: memberId, p_new_pin_hash: hash });
+  if (error) { alert('เกิดข้อผิดพลาด: ' + error.message); return; }
+  alert(`✅ Reset PIN ของ ${gameid} เรียบร้อยแล้ว\nแจ้ง PIN ใหม่ให้สมาชิก: ${newPin}`);
+  loadPinResets();
 }
 
 // ==================== Member Detail Panel ====================
