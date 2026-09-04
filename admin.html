@@ -113,6 +113,34 @@ select.form-input{padding:10px 14px}
 .hidden{display:none!important}
 .flex-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
+/* ═══ MEMBER DETAIL PANEL ═══ */
+.mp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:900;opacity:0;pointer-events:none;transition:opacity .25s}
+.mp-overlay.open{opacity:1;pointer-events:all}
+.mp-panel{position:fixed;top:0;right:0;bottom:0;width:min(460px,100vw);background:#f0f2f5;z-index:901;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;display:flex;flex-direction:column}
+.mp-panel.open{transform:translateX(0)}
+@media(max-width:600px){.mp-panel{top:auto;right:0;left:0;bottom:0;width:100%;height:92vh;border-radius:20px 20px 0 0;transform:translateY(100%)}
+.mp-panel.open{transform:translateY(0)}}
+.mp-head{background:linear-gradient(135deg,var(--red),var(--red-dark));padding:16px;display:flex;align-items:center;gap:14px;flex-shrink:0}
+.mp-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-left:auto;flex-shrink:0}
+.mp-av{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;flex-shrink:0;border:3px solid rgba(255,255,255,.4)}
+.mp-info{flex:1;min-width:0}
+.mp-name{font-size:17px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-gid{font-size:12px;color:rgba(255,255,255,.75);margin-top:2px}
+.mp-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.mp-body{flex:1;padding:14px;display:flex;flex-direction:column;gap:12px}
+.mp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mp-stat{background:#fff;border-radius:12px;padding:12px 6px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.mp-stat-n{font-size:24px;font-weight:900;color:var(--text);letter-spacing:-1px}
+.mp-stat-l{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.mp-section{background:#fff;border-radius:var(--radius);padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.mp-section h3{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+.mp-ci-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6}
+.mp-ci-row:last-child{border-bottom:none}
+.mp-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.mp-pin-reset-badge{background:#fee2e2;color:#dc2626;border-radius:20px;font-size:10px;font-weight:800;padding:2px 7px;margin-left:6px}
+.clickable-row{cursor:pointer}
+.clickable-row:hover td{background:#fef2f4!important}
+
 /* ═══ LOGIN SCREEN ═══ */
 #screen-login,#screen-noaccess{background:linear-gradient(160deg,#E8274B 0%,#a01428 50%,#150510 100%)}
 
@@ -974,7 +1002,7 @@ async function loadMembers() {
     }
     if (!members.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">ไม่พบสมาชิก</td></tr>'; return; }
     tbody.innerHTML=members.map((m,i)=>`
-      <tr>
+      <tr class="clickable-row" onclick="openMemberPanel('${m.id}')">
         <td style="font-weight:700;color:#9ca3af">#${i+1}</td>
         <td><strong>${m.name}</strong></td>
         <td style="font-size:12px;color:#6b7280">${m.gameid}</td>
@@ -1572,6 +1600,141 @@ async function removeTeamMember(id) {
   } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
 }
 
+// ==================== Member Detail Panel ====================
+let mpMemberId = null;
+
+function openMemberPanel(id) {
+  mpMemberId = id;
+  document.getElementById('mp-overlay').classList.add('open');
+  document.getElementById('mp-panel').classList.add('open');
+  document.getElementById('mp-body').innerHTML = '<div class="spin"></div>';
+  loadMemberDetail(id);
+}
+
+function closeMemberPanel() {
+  document.getElementById('mp-overlay').classList.remove('open');
+  document.getElementById('mp-panel').classList.remove('open');
+  mpMemberId = null;
+}
+
+async function loadMemberDetail(id) {
+  const body = document.getElementById('mp-body');
+  try {
+    // Load member + checkins + prizes in parallel
+    const [
+      { data: member },
+      { data: checkins },
+      { data: prizes },
+      { data: allMembers }
+    ] = await Promise.all([
+      db.from('members').select('*').eq('id', id).single(),
+      db.rpc('get_member_checkins', { p_member_id: id }),
+      db.from('draw_winners').select('*, activities(name)').eq('member_id', id).order('drawn_at', { ascending: false }).limit(10),
+      db.from('members').select('id,points').order('points', { ascending: false })
+    ]);
+
+    // Compute rank
+    const rank = (allMembers || []).findIndex(m => m.id === id) + 1;
+    const badge = getBadge(member.events || 0);
+
+    // Render header
+    const av = member.team === 'mystic' ? 'av-mystic' : member.team === 'valor' ? 'av-valor' : 'av-instinct';
+    const teamBadge = `<span class="badge ${TEAM_B[member.team]||''}">${TEAM_LABEL[member.team]||''}</span>`;
+    const achBadge = `<span class="ach-tag ach-${badge.cls}">${badge.icon} ${badge.label}</span>`;
+    document.getElementById('mp-av').className = `mp-av ${av}`;
+    document.getElementById('mp-av').textContent = (member.name||'?').charAt(0).toUpperCase();
+    document.getElementById('mp-name').textContent = member.name || '';
+    document.getElementById('mp-gid').textContent = member.gameid || '';
+    document.getElementById('mp-badges').innerHTML = teamBadge + achBadge;
+
+    // Render body
+    const ciList = (checkins || []).length === 0
+      ? '<div class="empty" style="padding:14px">ยังไม่มีประวัติ</div>'
+      : (checkins || []).slice(0, 20).map(c => {
+          const icons = { draw:'🎁', points:'⭐', pvp:'⚔️', checkin:'📍' };
+          const d = new Date(c.checked_at);
+          const ds = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+          return `<div class="mp-ci-row">
+            <span style="font-size:20px">${icons[c.activity_type]||'📍'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.activity_name||''}</div>
+              <div style="font-size:11px;color:var(--muted)">${ds}</div>
+            </div>
+            <span style="font-size:13px;font-weight:800;color:var(--red)">+${c.pts_earned||0}</span>
+          </div>`;
+        }).join('');
+
+    const prizeList = (prizes || []).length === 0
+      ? '<div class="empty" style="padding:14px">ยังไม่มีรางวัล</div>'
+      : (prizes || []).map(p => {
+          const d = new Date(p.drawn_at||'');
+          const ds = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+          return `<div class="mp-ci-row"><span style="font-size:20px">🏆</span>
+            <div style="flex:1"><div style="font-size:13px;font-weight:600">${p.activities?.name||'กิจกรรม'}</div>
+            <div style="font-size:11px;color:var(--muted)">${ds}</div></div>
+            <span style="font-size:11px;font-weight:700;color:#15803d">ได้รางวัล</span></div>`;
+        }).join('');
+
+    const joinDate = member.registered_at ? new Date(member.registered_at).toLocaleDateString('th-TH') : '-';
+    const phone = member.phone || '-';
+
+    body.innerHTML = `
+      <div class="mp-stats">
+        <div class="mp-stat"><div class="mp-stat-n">${member.events||0}</div><div class="mp-stat-l">กิจกรรม</div></div>
+        <div class="mp-stat"><div class="mp-stat-n" style="color:var(--red)">${member.points||0}</div><div class="mp-stat-l">แต้ม</div></div>
+        <div class="mp-stat"><div class="mp-stat-n">#${rank||'-'}</div><div class="mp-stat-l">อันดับ</div></div>
+      </div>
+      <div class="mp-section">
+        <h3>ข้อมูล</h3>
+        <div style="font-size:13px;color:var(--text);display:grid;grid-template-columns:auto 1fr;gap:5px 12px">
+          <span style="color:var(--muted)">ลงทะเบียน</span><span>${joinDate}</span>
+          <span style="color:var(--muted)">เบอร์โทร</span><span>${phone}</span>
+        </div>
+      </div>
+      <div class="mp-section">
+        <h3>📋 ประวัติเช็คอิน (${(checkins||[]).length} ครั้ง)</h3>
+        ${ciList}
+      </div>
+      <div class="mp-section">
+        <h3>🏆 รางวัลที่ได้รับ</h3>
+        ${prizeList}
+      </div>
+      <div class="mp-actions">
+        <div id="mp-reset-result"></div>
+        <button class="btn btn-secondary" onclick="mpResetPin('${id}')">🔑 Reset PIN สมาชิกนี้</button>
+        <button class="btn btn-danger btn-sm" style="width:100%;padding:11px" onclick="mpDeleteMember('${id}','${(member.name||'').replace(/'/g,'')}')">🗑 ลบสมาชิก</button>
+      </div>`;
+  } catch(e) {
+    body.innerHTML = `<div class="err-box">โหลดข้อมูลไม่ได้: ${e.message}</div>`;
+  }
+}
+
+async function mpResetPin(memberId) {
+  const newPin = prompt('ป้อน PIN ใหม่ 6 หลัก สำหรับสมาชิกนี้:');
+  if (!newPin || newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+    alert('PIN ต้องเป็นตัวเลข 6 หลัก'); return;
+  }
+  const hash = await sha256(newPin);
+  const { data, error } = await db.rpc('admin_reset_pin', { p_member_id: memberId, p_new_pin_hash: hash });
+  const el = document.getElementById('mp-reset-result');
+  if (error) { el.innerHTML = `<div class="err-box">${error.message}</div>`; }
+  else { el.innerHTML = `<div class="info-box">${data?.message||'เรียบร้อย'}</div>`; }
+  setTimeout(() => { if(el) el.innerHTML=''; }, 4000);
+}
+
+async function mpDeleteMember(memberId, name) {
+  if (!confirm(`⚠️ ลบสมาชิก "${name}" ออกจากระบบ?\nข้อมูลเช็คอินและแต้มจะหายทั้งหมด`)) return;
+  const { error } = await db.from('members').delete().eq('id', memberId);
+  if (error) { alert('ลบไม่ได้: ' + error.message); return; }
+  closeMemberPanel();
+  loadMembers();
+}
+
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
 // ==================== Init ====================
 window.addEventListener('DOMContentLoaded', async()=>{
   if (IS_CONFIGURED && db) {
@@ -1587,5 +1750,22 @@ window.addEventListener('DOMContentLoaded', async()=>{
 
 document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!$('screen-login').classList.contains('hidden')) doLogin(); });
 </script>
+
+<!-- ═══ MEMBER DETAIL PANEL ═══ -->
+<div class="mp-overlay" id="mp-overlay" onclick="closeMemberPanel()"></div>
+<div class="mp-panel" id="mp-panel">
+  <div class="mp-head">
+    <div class="mp-av" id="mp-av">?</div>
+    <div class="mp-info">
+      <div class="mp-name" id="mp-name">—</div>
+      <div class="mp-gid" id="mp-gid">—</div>
+      <div class="mp-badges" id="mp-badges"></div>
+    </div>
+    <button class="mp-close" onclick="closeMemberPanel()">✕</button>
+  </div>
+  <div class="mp-body" id="mp-body" style="flex:1;padding:14px">
+    <div class="spin"></div>
+  </div>
+</div>
 </body>
 </html>
