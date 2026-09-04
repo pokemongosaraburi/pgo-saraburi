@@ -412,6 +412,28 @@ select.form-input{padding:10px 14px}
         <button class="btn btn-secondary btn-sm" onclick="manualScanToken()" style="flex-shrink:0;white-space:nowrap">✅ ยืนยัน</button>
       </div>
     </div>
+
+    <!-- Manual Check-in Card -->
+    <div class="card" style="margin-top:0">
+      <h2>✋ เช็คอิน Manual</h2>
+      <div class="info-box" style="margin-bottom:14px">สำหรับกรณีสมาชิกไม่มี GPS หรือสัญญาณอ่อน — Admin เลือกสมาชิกและกิจกรรม แล้วกดเช็คอินให้เลย</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label class="form-label">ค้นหาสมาชิก</label>
+          <input id="mc-search" class="form-input" placeholder="พิมพ์ชื่อหรือ Trainer name..." oninput="mcSearchMembers()" autocomplete="off">
+          <div id="mc-dropdown" style="display:none;border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:200px;overflow-y:auto;margin-top:4px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.1)"></div>
+          <div id="mc-selected" style="display:none;margin-top:6px;padding:8px 12px;background:#fef2f2;border-radius:8px;border:1px solid #fecaca;font-size:13px;font-weight:700;color:var(--red)"></div>
+        </div>
+        <div>
+          <label class="form-label">กิจกรรมที่เปิดอยู่</label>
+          <select id="mc-activity" class="form-input" style="padding:10px 12px">
+            <option value="">กำลังโหลด...</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="doManualCheckin()" id="mc-btn">✅ เช็คอินให้สมาชิก</button>
+        <div id="mc-result" style="display:none;text-align:center;font-size:13px;padding:8px;border-radius:8px"></div>
+      </div>
+    </div>
   </div>
 
   <!-- TEAM (superadmin only) -->
@@ -746,9 +768,88 @@ function switchTab(name) {
   if (name==='activities') loadActivities();
   if (name==='draw')       loadDrawCandidates();
   if (name==='team')       loadTeam();
+  if (name==='scan')       { _mcMembersCache = []; loadMcActivities(); }
 }
 
 // ==================== Dashboard ====================
+// ── Manual Check-in ──────────────────────────────────────────────────────────
+let _mcSelectedId = null, _mcMembersCache = [];
+
+async function loadMcActivities() {
+  const sel = document.getElementById('mc-activity');
+  if (!sel || !IS_CONFIGURED || !db) return;
+  try {
+    const { data } = await db.from('activities').select('id,name,time_label').eq('is_open', true).order('created_at', { ascending: false });
+    if (!data?.length) { sel.innerHTML = '<option value="">ไม่มีกิจกรรมที่เปิดอยู่</option>'; return; }
+    sel.innerHTML = data.map(a => `<option value="${a.id}">${a.name}${a.time_label ? ' — '+a.time_label : ''}</option>`).join('');
+  } catch(e) { sel.innerHTML = '<option value="">เกิดข้อผิดพลาด</option>'; }
+}
+
+async function mcSearchMembers() {
+  const q = document.getElementById('mc-search').value.trim().toLowerCase();
+  const dd = document.getElementById('mc-dropdown');
+  _mcSelectedId = null;
+  document.getElementById('mc-selected').style.display = 'none';
+  if (q.length < 1) { dd.style.display = 'none'; return; }
+  try {
+    if (!_mcMembersCache.length && IS_CONFIGURED && db) {
+      const { data } = await db.from('members').select('id,name,gameid,team').order('name');
+      _mcMembersCache = data || [];
+    }
+    const filtered = _mcMembersCache.filter(m =>
+      m.name.toLowerCase().includes(q) || (m.gameid||'').toLowerCase().includes(q)
+    ).slice(0, 8);
+    if (!filtered.length) { dd.innerHTML = '<div style="padding:12px;color:#9ca3af;font-size:13px">ไม่พบสมาชิก</div>'; dd.style.display = 'block'; return; }
+    dd.innerHTML = filtered.map(m => `
+      <div onclick="mcSelectMember('${m.id}','${m.name}','${m.gameid||''}')"
+           style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f3f4f6;font-size:13px"
+           onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">
+        <span class="badge ${TEAM_B[m.team]||''}" style="flex-shrink:0">${TEAM_LABEL[m.team]||''}</span>
+        <div><strong>${m.name}</strong><span style="color:#9ca3af;margin-left:6px">${m.gameid||''}</span></div>
+      </div>`).join('');
+    dd.style.display = 'block';
+  } catch(e) {}
+}
+
+function mcSelectMember(id, name, gameid) {
+  _mcSelectedId = id;
+  document.getElementById('mc-search').value = '';
+  document.getElementById('mc-dropdown').style.display = 'none';
+  const sel = document.getElementById('mc-selected');
+  sel.innerHTML = `✅ เลือก: <strong>${name}</strong> <span style="font-weight:400;color:#6b7280">${gameid}</span>`;
+  sel.style.display = 'block';
+}
+
+async function doManualCheckin() {
+  if (!_mcSelectedId) { alert('กรุณาเลือกสมาชิกก่อน'); return; }
+  const actId = document.getElementById('mc-activity').value;
+  if (!actId) { alert('กรุณาเลือกกิจกรรม'); return; }
+  const btn = document.getElementById('mc-btn');
+  const res = document.getElementById('mc-result');
+  btn.disabled = true; btn.textContent = '⏳ กำลังเช็คอิน...';
+  res.style.display = 'none';
+  try {
+    const { data, error } = await db.rpc('admin_manual_checkin', { p_member_id: _mcSelectedId, p_activity_id: actId });
+    res.style.display = 'block';
+    if (data?.ok) {
+      res.style.background = '#f0fdf4'; res.style.color = '#15803d';
+      res.textContent = data.message;
+      _mcSelectedId = null;
+      document.getElementById('mc-selected').style.display = 'none';
+      loadDashboard();
+    } else {
+      res.style.background = '#fef2f2'; res.style.color = '#dc2626';
+      res.textContent = (error?.message) || data?.message || 'เกิดข้อผิดพลาด';
+    }
+  } catch(e) {
+    res.style.display = 'block'; res.style.background = '#fef2f2'; res.style.color = '#dc2626';
+    res.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = '✅ เช็คอินให้สมาชิก';
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── Push Notifications ────────────────────────────────────────────────────────
 const PUSH_EDGE_URL = 'https://mywgmpeirhuzeglzofso.supabase.co/functions/v1/send-push';
 

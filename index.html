@@ -283,9 +283,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="sec-label">กิจกรรมที่เปิดอยู่</div>
     <div id="activity-list"></div>
   </div>
-  <div class="foot" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px">
-    <a href="#" onclick="loadLeaderboard();goScreen('leaderboard')" style="color:var(--red);text-decoration:none;font-weight:700;font-size:13px">🏆 Leaderboard</a>
-    <a href="#" onclick="doLogout()" style="color:var(--muted);text-decoration:none;font-size:13px">ออกจากระบบ</a>
+  <div class="foot" style="display:flex;align-items:center;justify-content:space-around;padding:12px 8px">
+    <a href="#" onclick="loadLeaderboard();goScreen('leaderboard')" style="color:var(--red);text-decoration:none;font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">🏆</span>Leaderboard</a>
+    <a href="#" onclick="loadHistory();goScreen('history')" style="color:var(--muted);text-decoration:none;font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">📋</span>ประวัติ</a>
+    <a href="#" onclick="doLogout()" style="color:var(--muted);text-decoration:none;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">🚪</span>ออกจากระบบ</a>
   </div>
 </div>
 
@@ -352,6 +353,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div style="font-size:13px;color:#6b7280;margin:12px 0" id="succ-actname"></div>
     <button class="btn btn-primary" onclick="goScreen('home')">🏠 กลับหน้าหลัก</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="screen" id="history">
+  <div class="topbar"><h1>📋 ประวัติเช็คอิน</h1><p id="hist-sub">กิจกรรมที่เคยเข้าร่วม</p></div>
+  <div class="content">
+    <div class="card" style="padding:0;overflow:hidden" id="hist-list-wrap">
+      <div id="hist-list" style="padding:20px;text-align:center;color:var(--muted)">กำลังโหลด...</div>
+    </div>
+    <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
   </div>
 </div>
 
@@ -1081,6 +1093,44 @@ function doLogout() {
   goScreen('register');
 }
 
+// ===== Check-in History =====
+async function loadHistory() {
+  const el = document.getElementById('hist-list');
+  const sub = document.getElementById('hist-sub');
+  el.innerHTML = '<div class="spin" style="margin:20px auto"></div>';
+  try {
+    let rows = [];
+    if (IS_CONFIGURED && db && currentMember) {
+      const { data, error } = await db.rpc('get_member_checkins', { p_member_id: currentMember.id });
+      if (!error) rows = data || [];
+    }
+    if (!rows.length) {
+      el.innerHTML = '<div class="empty-state"><span class="empty-icon">📋</span><p>ยังไม่มีประวัติเช็คอิน</p></div>';
+      if (sub) sub.textContent = 'ยังไม่มีประวัติ';
+      return;
+    }
+    if (sub) sub.textContent = `เข้าร่วมแล้ว ${rows.length} กิจกรรม`;
+    el.innerHTML = rows.map((r, i) => {
+      const icon = TYPE_ICON[r.activity_type] || '📍';
+      const d = new Date(r.checked_at);
+      const dateStr = d.toLocaleDateString('th-TH', { day:'numeric', month:'short', year:'2-digit' });
+      const timeStr = d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+      return `<div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #f3f4f6${i===rows.length-1?';border-bottom:none':''}">
+        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--red),var(--red-dark));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.activity_name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${dateStr} · ${timeStr}${r.time_label ? ' · '+r.time_label : ''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:15px;font-weight:900;color:var(--red)">+${r.pts_earned}</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:600">แต้ม</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty-state"><span class="empty-icon">⚠️</span><p>เกิดข้อผิดพลาด</p></div>';
+  }
+}
 // ===== Achievement Badges =====
 const BADGES = [
   { min:50, cls:'ach-champion', icon:'👑', label:'Champion'   },
