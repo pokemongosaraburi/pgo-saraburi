@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>PGO Saraburi — กิจกรรม</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -24,7 +26,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 /* ═══ LOADING ═══ */
 .loading-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.92);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:14px}
 .loading-overlay.hidden{display:none}
-.spin{width:38px;height:38px;border:3px solid #f0f0f0;border-top-color:var(--red);border-radius:50%;animation:spin .8s linear infinite}
+.pokeball-spin{width:48px;height:48px;animation:spin .9s linear infinite;filter:drop-shadow(0 2px 8px rgba(232,39,75,0.3))}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ═══ SPLASH ═══ */
@@ -185,13 +187,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <body>
 <div class="app">
 <div class="loading-overlay hidden" id="global-loader">
-  <div class="spin"></div>
+  <svg class="pokeball-spin" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="48" fill="white" stroke="#222" stroke-width="4"/>
+    <path d="M2 50 Q2 2 50 2 Q98 2 98 50Z" fill="#E8274B"/>
+    <rect x="2" y="46" width="96" height="8" fill="#222"/>
+    <circle cx="50" cy="50" r="14" fill="white" stroke="#222" stroke-width="4"/>
+    <circle cx="50" cy="50" r="7" fill="white" stroke="#555" stroke-width="2"/>
+  </svg>
   <div style="font-size:13px;color:#6b7280" id="loader-text">กำลังโหลด...</div>
 </div>
 
 <!-- SPLASH -->
 <div class="screen active" id="splash">
-  <div class="ball-wrap"><div class="ball-inner">⚽</div></div>
+  <img src="logo.png" alt="PGO Saraburi" style="width:160px;height:160px;border-radius:50%;margin-bottom:20px;animation:spin 6s linear infinite;box-shadow:0 0 60px rgba(255,100,100,0.4)">
   <h1>PGO Saraburi</h1>
   <p>ระบบจัดการกิจกรรม</p>
 </div>
@@ -246,8 +254,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <!-- LOGIN -->
 <div class="screen" id="login">
   <div class="topbar">
-    <h1>🎮 PGO Saraburi</h1>
-    <p>ระบบจัดการกิจกรรม Pokemon GO</p>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="logo.png" alt="logo" style="width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,0.4)">
+      <div>
+        <h1>PGO Saraburi</h1>
+        <p>ระบบจัดการกิจกรรม Pokemon GO</p>
+      </div>
+    </div>
   </div>
   <div class="content">
     <div class="err-box" id="login-err" style="display:none"></div>
@@ -282,8 +295,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <!-- HOME -->
 <div class="screen" id="home">
   <div class="topbar">
-    <h1>🎮 PGO Saraburi</h1>
-    <p id="home-sub">กิจกรรมวันนี้</p>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="logo.png" alt="logo" style="width:38px;height:38px;border-radius:50%;border:2px solid rgba(255,255,255,0.4)">
+      <div>
+        <h1>PGO Saraburi</h1>
+        <p id="home-sub">กิจกรรมวันนี้</p>
+      </div>
+    </div>
   </div>
   <div class="content">
     <div class="card" id="home-card">
