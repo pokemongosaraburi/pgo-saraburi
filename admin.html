@@ -215,6 +215,19 @@ select.form-input{padding:10px 14px}
       <h2>สถิติตามทีม</h2>
       <div id="team-stats"></div>
     </div>
+    <!-- Push Notification Card -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0">🔔 ส่งประกาศ Push</h2>
+        <span id="push-sub-count" style="font-size:12px;color:var(--muted)">กำลังโหลด...</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <input id="push-title" class="form-input" placeholder="หัวเรื่อง (เช่น กิจกรรมใหม่!)" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px">
+        <textarea id="push-body" class="form-input" placeholder="ข้อความ (เช่น เปิดเช็คอินแล้ว มาร่วมกันได้เลย!)" style="padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;height:70px;resize:none"></textarea>
+        <button class="btn btn-primary" onclick="sendPushNotification()" id="push-btn">📣 ส่งประกาศ</button>
+        <div id="push-result" style="font-size:13px;text-align:center;display:none"></div>
+      </div>
+    </div>
   </div>
 
   <!-- MEMBERS -->
@@ -718,7 +731,56 @@ function switchTab(name) {
 }
 
 // ==================== Dashboard ====================
+// ── Push Notifications ────────────────────────────────────────────────────────
+const PUSH_EDGE_URL = 'https://mywgmpeirhuzeglzofso.supabase.co/functions/v1/send-push';
+
+async function loadPushCount() {
+  if (!IS_CONFIGURED || !db) return;
+  try {
+    const { count } = await db.from('push_subscriptions').select('*', { count: 'exact', head: true });
+    $('push-sub-count').textContent = `${count||0} อุปกรณ์สมัครรับแล้ว`;
+  } catch(e) {}
+}
+
+async function sendPushNotification() {
+  const title = $('push-title').value.trim() || 'PGO Saraburi';
+  const body  = $('push-body').value.trim();
+  if (!body) { alert('กรุณาใส่ข้อความก่อน'); return; }
+  const btn = $('push-btn');
+  const res = $('push-result');
+  btn.disabled = true;
+  btn.textContent = '⏳ กำลังส่ง...';
+  res.style.display = 'none';
+  try {
+    const resp = await fetch(PUSH_EDGE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      body: JSON.stringify({ title, body, url: '/' })
+    });
+    const data = await resp.json();
+    res.style.display = 'block';
+    if (resp.ok) {
+      res.style.color = '#16a34a';
+      res.textContent = `✅ ส่งสำเร็จ ${data.sent} อุปกรณ์ (ล้มเหลว ${data.fails})`;
+      $('push-title').value = '';
+      $('push-body').value = '';
+    } else {
+      res.style.color = '#dc2626';
+      res.textContent = '❌ ส่งไม่สำเร็จ: ' + (data.error || resp.status);
+    }
+  } catch(e) {
+    res.style.display = 'block';
+    res.style.color = '#dc2626';
+    res.textContent = '❌ Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📣 ส่งประกาศ';
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function loadDashboard() {
+  loadPushCount();
   try {
     if (IS_CONFIGURED && db) {
       const [{ count: mc },{ count: ac },{ data: cis }] = await Promise.all([

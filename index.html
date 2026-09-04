@@ -568,6 +568,9 @@ async function renderHome() {
   if (!member) return;
   currentMember = member;
 
+  // register push subscription (non-blocking)
+  setTimeout(() => registerPush(), 2000);
+
   const initials = member.name.slice(0,2).toUpperCase();
   document.getElementById('home-av').textContent = initials;
   document.getElementById('home-av').className = 'avatar ' + (TEAM_AV[member.team]||'av-mystic');
@@ -1065,6 +1068,45 @@ function doLogout() {
   localStorage.setItem('pgo_logged_out','1');
   currentMember = null;
   goScreen('register');
+}
+
+// ===== Push Notifications =====
+const VAPID_PUBLIC_KEY = 'BKR7my2pD_BsOhUi0TewJfQ28eBGLkKv4wfkmLUfkV9lb5DgWRjR0dHjcJNEPgA_j5XwTq59cHOOOtWXoAjRNqg';
+const PUSH_EDGE_URL = IS_CONFIGURED
+  ? 'https://mywgmpeirhuzeglzofso.supabase.co/functions/v1/send-push'
+  : null;
+
+function urlB64ToUint8Array(b) {
+  const pad = '='.repeat((4 - b.length % 4) % 4);
+  const s = atob((b + pad).replace(/-/g,'+').replace(/_/g,'/'));
+  return Uint8Array.from(s, c => c.charCodeAt(0));
+}
+
+async function registerPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+    // ask permission only if not yet granted
+    if (Notification.permission === 'default') {
+      const p = await Notification.requestPermission();
+      if (p !== 'granted') return;
+    }
+    if (Notification.permission !== 'granted') return;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+    const j = sub.toJSON();
+    if (IS_CONFIGURED && db && currentMember) {
+      await db.rpc('upsert_push_subscription', {
+        p_member_id: currentMember.id,
+        p_endpoint:  j.endpoint,
+        p_p256dh:    j.keys.p256dh,
+        p_auth:      j.keys.auth,
+      });
+    }
+  } catch(e) { console.warn('Push register failed', e); }
 }
 
 // ===== Init =====
