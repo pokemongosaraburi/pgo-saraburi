@@ -564,6 +564,8 @@ async function doLogin() {
       else showErr('login-err','รหัสผ่านไม่ถูกต้อง (Demo: admin)');
       return;
     }
+    // ล้าง session เก่า (เช่น Google OAuth จาก index.html) ก่อน login ใหม่
+    await db.auth.signOut();
     const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
     if (error) throw error;
     currentUser = data.user;
