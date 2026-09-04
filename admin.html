@@ -1757,11 +1757,52 @@ async function loadMemberDetail(id) {
       </div>
       <div class="mp-actions">
         <div id="mp-reset-result"></div>
+        ${member.suspended_until && new Date(member.suspended_until) > new Date()
+          ? `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:10px 12px;font-size:13px;color:#92400e">
+               ⛔ ระงับบัญชีถึง ${new Date(member.suspended_until).toLocaleString('th-TH',{timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+             </div>
+             <button class="btn btn-secondary" onclick="mpUnsuspend('${id}')">✅ ยกเลิกการระงับ</button>`
+          : `<div style="display:flex;gap:8px;align-items:center">
+               <select id="suspend-days" style="flex:1;padding:10px;border:1px solid #e5e7eb;border-radius:10px;font-size:13px">
+                 <option value="1">ระงับ 1 วัน</option>
+                 <option value="7">ระงับ 7 วัน</option>
+                 <option value="30" selected>ระงับ 30 วัน</option>
+                 <option value="90">ระงับ 90 วัน</option>
+                 <option value="180">ระงับ 180 วัน</option>
+                 <option value="365">ระงับ 365 วัน</option>
+               </select>
+               <button class="btn btn-danger btn-sm" style="padding:10px 14px;white-space:nowrap" onclick="mpSuspend('${id}')">⛔ ระงับ</button>
+             </div>`}
         <button class="btn btn-secondary" onclick="mpResetPin('${id}')">🔑 Reset PIN สมาชิกนี้</button>
         <button class="btn btn-danger btn-sm" style="width:100%;padding:11px" onclick="mpDeleteMember('${id}','${(member.name||'').replace(/'/g,'')}')">🗑 ลบสมาชิก</button>
       </div>`;
   } catch(e) {
     body.innerHTML = `<div class="err-box">โหลดข้อมูลไม่ได้: ${e.message}</div>`;
+  }
+}
+
+async function mpSuspend(memberId) {
+  const days = parseInt(document.getElementById('suspend-days').value);
+  if (!confirm(`⛔ ยืนยันระงับบัญชีนี้ ${days} วัน?`)) return;
+  const { data, error } = await db.rpc('admin_suspend_member', { p_member_id: memberId, p_days: days });
+  const el = document.getElementById('mp-reset-result');
+  if (error || !data?.ok) {
+    el.innerHTML = `<div class="err-box">${error?.message || data?.message}</div>`;
+  } else {
+    el.innerHTML = `<div class="info-box">⛔ ${data.message}</div>`;
+    setTimeout(() => loadMemberDetail(memberId), 1500);
+  }
+}
+
+async function mpUnsuspend(memberId) {
+  if (!confirm('✅ ยืนยันยกเลิกการระงับบัญชีนี้?')) return;
+  const { data, error } = await db.rpc('admin_unsuspend_member', { p_member_id: memberId });
+  const el = document.getElementById('mp-reset-result');
+  if (error || !data?.ok) {
+    el.innerHTML = `<div class="err-box">${error?.message || data?.message}</div>`;
+  } else {
+    el.innerHTML = `<div class="info-box">✅ ${data.message}</div>`;
+    setTimeout(() => loadMemberDetail(memberId), 1500);
   }
 }
 
