@@ -128,6 +128,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 /* ═══ CONFIG WARNING ═══ */
 .config-warn{background:#fef9c3;border:1.5px solid #fde68a;border-radius:12px;padding:13px;margin-bottom:14px;font-size:12px;color:#854d0e;line-height:1.6}
 
+/* ═══ LEADERBOARD ═══ */
+.lb-podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;padding:20px 8px 0}
+.lb-pod{display:flex;flex-direction:column;align-items:center;flex:1;max-width:120px}
+.lb-pod-av{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;margin-bottom:6px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.lb-pod.first .lb-pod-av{width:64px;height:64px;font-size:21px}
+.lb-pod-crown{font-size:22px;margin-bottom:2px}
+.lb-pod-name{font-size:12px;font-weight:800;color:var(--text);text-align:center;line-height:1.3;margin-bottom:3px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lb-pod-pts{font-size:13px;font-weight:900;color:var(--red)}
+.lb-pod-base{border-radius:12px 12px 0 0;padding:12px 6px 10px;text-align:center;margin-top:8px;width:100%}
+.lb-pod.first .lb-pod-base{background:linear-gradient(135deg,#fef9c3,#fde68a);min-height:80px}
+.lb-pod.second .lb-pod-base{background:linear-gradient(135deg,#f3f4f6,#e5e7eb);min-height:60px}
+.lb-pod.third .lb-pod-base{background:linear-gradient(135deg,#fff7ed,#fed7aa);min-height:44px}
+.lb-rank-num{font-size:15px;font-weight:900;color:var(--muted)}
+.lb-list{margin-top:2px}
+.lb-row{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #f3f4f6;transition:background .12s}
+.lb-row:last-child{border-bottom:none}
+.lb-row.me{background:linear-gradient(90deg,#fef2f2,#fff5f7);border-left:3px solid var(--red)}
+.lb-row:hover{background:#f9fafb}
+.lb-rank{width:28px;text-align:center;font-size:13px;font-weight:800;color:var(--muted);flex-shrink:0}
+.lb-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+.lb-info{flex:1;min-width:0}
+.lb-info-name{font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-info-sub{font-size:11px;color:var(--muted);margin-top:1px}
+.lb-pts{font-size:14px;font-weight:900;color:var(--red);flex-shrink:0}
+.lb-filter{display:flex;gap:6px;padding:0 0 12px}
+.lb-ftab{flex:1;padding:8px 4px;border:1.5px solid var(--border);border-radius:10px;background:#fff;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-align:center;transition:all .15s}
+.lb-ftab.active{border-color:var(--red);background:#fef2f2;color:var(--red)}
+
 /* ═══ ANIMATIONS ═══ */
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes popIn{from{opacity:0;transform:scale(.72)}to{opacity:1;transform:scale(1)}}
@@ -245,8 +273,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="sec-label">กิจกรรมที่เปิดอยู่</div>
     <div id="activity-list"></div>
   </div>
-  <div class="foot">
-    <a href="#" onclick="doLogout()">ออกจากระบบ</a>
+  <div class="foot" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px">
+    <a href="#" onclick="loadLeaderboard();goScreen('leaderboard')" style="color:var(--red);text-decoration:none;font-weight:700;font-size:13px">🏆 Leaderboard</a>
+    <a href="#" onclick="doLogout()" style="color:var(--muted);text-decoration:none;font-size:13px">ออกจากระบบ</a>
   </div>
 </div>
 
@@ -313,6 +342,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div style="font-size:13px;color:#6b7280;margin:12px 0" id="succ-actname"></div>
     <button class="btn btn-primary" onclick="goScreen('home')">🏠 กลับหน้าหลัก</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div class="screen" id="leaderboard">
+  <div class="topbar">
+    <h1>🏆 Leaderboard</h1>
+    <p id="lb-sub">อันดับแต้มสะสม</p>
+  </div>
+  <div class="content">
+    <div class="lb-filter">
+      <div class="lb-ftab active" id="lbf-all"      onclick="lbFilter('all')">🌐 ทั้งหมด</div>
+      <div class="lb-ftab"       id="lbf-mystic"    onclick="lbFilter('mystic')">💙 Mystic</div>
+      <div class="lb-ftab"       id="lbf-valor"     onclick="lbFilter('valor')">❤️ Valor</div>
+      <div class="lb-ftab"       id="lbf-instinct"  onclick="lbFilter('instinct')">💛 Instinct</div>
+    </div>
+    <!-- Podium top 3 -->
+    <div class="card" style="padding-bottom:0;overflow:hidden">
+      <div class="lb-podium" id="lb-podium"></div>
+    </div>
+    <!-- Full list -->
+    <div class="card" style="padding:0;overflow:hidden" id="lb-list-card">
+      <div id="lb-list"></div>
+    </div>
+    <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
   </div>
 </div>
 
@@ -914,6 +968,96 @@ async function _showCheckinSuccess(member) {
 
 function changeDevice() {
   if (confirm('ออกจากระบบในอุปกรณ์นี้?')) { lsDel('member_fp'); currentMember=null; goScreen('register'); }
+}
+
+// ===== Leaderboard =====
+let _lbData = [];
+let _lbFilter = 'all';
+
+async function loadLeaderboard() {
+  const podiumEl = document.getElementById('lb-podium');
+  const listEl   = document.getElementById('lb-list');
+  podiumEl.innerHTML = '<div style="padding:20px;text-align:center"><div class="spin" style="margin:0 auto"></div></div>';
+  listEl.innerHTML   = '';
+
+  try {
+    if (IS_CONFIGURED && db) {
+      const { data, error } = await db.rpc('get_leaderboard', { p_limit: 100 });
+      _lbData = error ? [] : (data || []);
+    } else {
+      const members = lsGet('members') || [];
+      const sorted = [...members].sort((a,b)=>(b.points||0)-(a.points||0)||(b.events||0)-(a.events||0));
+      _lbData = sorted.map((m,i)=>({...m, rank:i+1}));
+    }
+  } catch(e) { _lbData = []; }
+
+  renderLeaderboard();
+}
+
+function lbFilter(team) {
+  _lbFilter = team;
+  document.querySelectorAll('.lb-ftab').forEach(el => el.classList.remove('active'));
+  document.getElementById('lbf-' + team).classList.add('active');
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const myId = currentMember?.id;
+  const all  = _lbFilter === 'all' ? _lbData : _lbData.filter(m => m.team === _lbFilter);
+
+  // Re-rank after filter
+  const ranked = all.map((m, i) => ({...m, displayRank: i + 1}));
+
+  // Podium (top 3)
+  const podiumEl = document.getElementById('lb-podium');
+  const podOrder = [ranked[1], ranked[0], ranked[2]]; // 2nd, 1st, 3rd
+  const podClass = ['second','first','third'];
+  const podCrown = ['🥈','👑','🥉'];
+
+  podiumEl.innerHTML = podOrder.map((m, i) => {
+    if (!m) return '<div class="lb-pod"></div>';
+    const av = (TEAM_AV[m.team] || 'av-mystic');
+    const initials = (m.name||'').slice(0,2).toUpperCase();
+    return `
+      <div class="lb-pod ${podClass[i]}">
+        <div style="font-size:${i===1?'24px':'18px'}">${podCrown[i]}</div>
+        <div class="lb-pod-av ${av}">${initials}</div>
+        <div class="lb-pod-name">${m.name}</div>
+        <div class="lb-pod-pts">${m.points||0} pt</div>
+        <div class="lb-pod-base">
+          <div class="lb-rank-num">#${m.displayRank}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Full list (ข้าม top3)
+  const listEl = document.getElementById('lb-list');
+  if (!ranked.length) {
+    listEl.innerHTML = '<div class="empty-state"><span class="empty-icon">🏆</span><p>ยังไม่มีข้อมูล</p></div>';
+    return;
+  }
+  listEl.innerHTML = ranked.map(m => {
+    const isMe = m.id === myId;
+    const av   = TEAM_AV[m.team] || 'av-mystic';
+    const medal = m.displayRank === 1 ? '🥇' : m.displayRank === 2 ? '🥈' : m.displayRank === 3 ? '🥉' : m.displayRank;
+    return `
+      <div class="lb-row${isMe ? ' me' : ''}">
+        <div class="lb-rank">${medal}</div>
+        <div class="lb-av ${av}">${(m.name||'').slice(0,2).toUpperCase()}</div>
+        <div class="lb-info">
+          <div class="lb-info-name">${m.name}${isMe ? ' <span style="color:var(--red);font-size:10px">(คุณ)</span>' : ''}</div>
+          <div class="lb-info-sub">${m.gameid} · ${(TEAM_LABEL[m.team]||'')}</div>
+        </div>
+        <div class="lb-pts">${m.points||0} <span style="font-size:10px;font-weight:600;color:var(--muted)">pt</span></div>
+      </div>`;
+  }).join('');
+
+  // อัปเดต subtitle
+  const sub = document.getElementById('lb-sub');
+  if (sub && currentMember) {
+    const myEntry = ranked.find(m => m.id === myId);
+    sub.textContent = myEntry ? `คุณอยู่อันดับ #${myEntry.displayRank}` : 'อันดับแต้มสะสม';
+  }
 }
 
 function doLogout() {
