@@ -1462,8 +1462,24 @@ function applyDeepLink(actId) {
   else goScreen('home');
 }
 
+// ===== Seasonal splash image =====
+async function applySeasonalSplash() {
+  try {
+    if (!IS_CONFIGURED || !db) return;
+    const { data } = await db.from('app_settings').select('value').eq('key','splash_image_url').maybeSingle();
+    const url = data && data.value ? data.value.trim() : '';
+    if (url && /^https?:\/\//i.test(url)) {
+      const el = document.getElementById('splash');
+      el.style.backgroundImage = `linear-gradient(160deg, rgba(232,39,75,.55) 0%, rgba(26,6,16,.75) 100%), url("${url.replace(/"/g,'')}")`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+    }
+  } catch(e) {}
+}
+
 // ===== Init =====
 window.addEventListener('DOMContentLoaded', () => {
+  applySeasonalSplash();
   const params = new URLSearchParams(location.search);
   const actId  = params.get('activity');
   // เก็บ deep-link target จาก push notification

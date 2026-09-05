@@ -495,6 +495,17 @@ select.form-input{padding:10px 14px}
         <tbody id="team-list"><tr><td colspan="5" class="empty">กำลังโหลด...</td></tr></tbody>
       </table></div>
     </div>
+    <div class="card">
+      <h2>🖼️ รูปภาพหน้า Splash (ตามเทศกาล)</h2>
+      <div class="info-box">ตั้งค่า URL รูปพื้นหลังหน้าแรกที่สมาชิกเห็นตอนเปิดแอป เช่น ธีมฮาโลวีน คริสต์มาส ปีใหม่ — เว้นว่างแล้วบันทึกเพื่อกลับไปใช้พื้นหลังปกติ</div>
+      <div class="err-box hidden" id="splash-err"></div>
+      <div class="flex-row" style="margin-bottom:10px">
+        <input class="form-input" id="splash-url" type="url" placeholder="https://example.com/seasonal.jpg" style="flex:1;min-width:200px">
+        <button class="btn btn-primary btn-sm" onclick="saveSplashImage()">💾 บันทึก</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearSplashImage()">✖ ล้างค่า</button>
+      </div>
+      <img id="splash-preview" src="" alt="ตัวอย่างรูป Splash" style="display:none;max-width:220px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.15)">
+    </div>
   </div>
 
 </div><!-- .app -->
@@ -805,7 +816,7 @@ function switchTab(name) {
   if (name==='members')    { loadMembers(); loadPinResets(); }
   if (name==='activities') loadActivities();
   if (name==='draw')       loadDrawCandidates();
-  if (name==='team')       loadTeam();
+  if (name==='team')       { loadTeam(); loadSplashImage(); }
   if (name==='scan')       { _mcMembersCache = []; loadMcActivities(); }
 }
 
@@ -1568,6 +1579,44 @@ async function removeTeamMember(id) {
   try {
     if (IS_CONFIGURED && db) { await db.from('team_members').delete().eq('id',id); loadTeam(); }
   } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+}
+
+// ==================== Seasonal Splash Image ====================
+async function loadSplashImage() {
+  hideErr('splash-err');
+  if (!IS_CONFIGURED || !db) return;
+  try {
+    const { data } = await db.from('app_settings').select('value').eq('key','splash_image_url').maybeSingle();
+    const url = (data && data.value) ? data.value : '';
+    $('splash-url').value = url;
+    updateSplashPreview(url);
+  } catch(e) { /* ตาราง app_settings อาจยังไม่ถูกสร้าง — เงียบไว้ */ }
+}
+
+function updateSplashPreview(url) {
+  const img = $('splash-preview');
+  if (url) { img.src = url; img.style.display = 'block'; }
+  else { img.src = ''; img.style.display = 'none'; }
+}
+
+async function saveSplashImage() {
+  hideErr('splash-err');
+  const url = $('splash-url').value.trim();
+  if (url && !/^https?:\/\//i.test(url)) { showErr('splash-err','URL ต้องขึ้นต้นด้วย http:// หรือ https://'); return; }
+  try {
+    if (IS_CONFIGURED && db) {
+      const { error } = await db.from('app_settings')
+        .upsert({ key:'splash_image_url', value: url || null, updated_at: new Date().toISOString() });
+      if (error) throw error;
+    }
+    updateSplashPreview(url);
+    alert('บันทึกแล้ว ✅');
+  } catch(e) { showErr('splash-err', e.message); }
+}
+
+async function clearSplashImage() {
+  $('splash-url').value = '';
+  await saveSplashImage();
 }
 
 // ==================== PIN Reset Requests ====================
