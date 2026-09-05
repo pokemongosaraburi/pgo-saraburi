@@ -1652,7 +1652,7 @@ async function loadMemberDetail(id) {
     // Render header
     const av = member.team === 'mystic' ? 'av-mystic' : member.team === 'valor' ? 'av-valor' : 'av-instinct';
     const teamBadge = `<span class="badge ${TEAM_B[member.team]||''}">${TEAM_LABEL[member.team]||''}</span>`;
-    const achBadge = `<span class="ach-tag ach-${badge.cls}">${badge.icon} ${badge.label}</span>`;
+    const achBadge = badge ? `<span class="ach-tag ach-${badge.cls}">${badge.icon} ${badge.label}</span>` : '';
     document.getElementById('mp-av').className = `mp-av ${av}`;
     document.getElementById('mp-av').textContent = (member.name||'?').charAt(0).toUpperCase();
     document.getElementById('mp-name').textContent = member.name || '';
