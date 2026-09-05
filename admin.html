@@ -260,6 +260,7 @@ select.form-input{padding:10px 14px}
 
   <!-- MEMBERS -->
   <div class="tab-panel" id="panel-members">
+    <!-- PIN Reset Requests -->
     <div class="card" id="pin-resets-card" style="display:none;border-left:4px solid #dc2626">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <h2 style="margin:0;color:#dc2626">🔑 คำขอ Reset PIN</h2>
@@ -279,7 +280,7 @@ select.form-input{padding:10px 14px}
       </div>
       <div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>#</th><th>ชื่อ</th><th>Trainer Name</th><th>ทีม</th><th>Badge</th><th>กิจกรรม</th><th>แต้ม</th><th>ลงทะเบียน</th></tr></thead>
-        <tbody id="members-list"><tr><td colspan="8" class="empty">กำลังโหลด...</td></tr></tbody>
+        <tbody id="members-list"><tr><td colspan="7" class="empty">กำลังโหลด...</td></tr></tbody>
       </table></div>
     </div>
   </div>
@@ -501,10 +502,11 @@ select.form-input{padding:10px 14px}
 
 <script>
 // =====================================================
-// SUPABASE CONFIG
-// =====================================================
+// SUPABASE CONFIG — แก้ไข 2 บรรทัดนี้
+// หาค่าได้ที่: Supabase Dashboard → Settings → API
 const SUPABASE_URL      = 'https://mywgmpeirhuzeglzofso.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable__g2KWcUU1hOY8hpvE3EupQ_81szTRiy';
+// =====================================================
 
 const IS_CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT');
 
@@ -551,10 +553,12 @@ async function doLogin() {
   $('login-btn').disabled=true; $('login-btn').textContent='กำลังเข้าสู่ระบบ...';
   try {
     if (!IS_CONFIGURED || !db) {
+      // Demo mode (no Supabase)
       if (pw==='admin') { currentRole='superadmin'; currentUser={email}; bootAdmin(); }
       else showErr('login-err','รหัสผ่านไม่ถูกต้อง (Demo: admin)');
       return;
     }
+    // ล้าง session เก่า (เช่น Google OAuth จาก index.html) ก่อน login ใหม่
     await db.auth.signOut();
     const { data, error } = await db.auth.signInWithPassword({ email, password: pw });
     if (error) throw error;
@@ -591,6 +595,7 @@ function startRealtime() {
   _realtimeChannel = db.channel('admin-realtime')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'checkins' }, payload => {
       showToast('📍 เช็คอินใหม่: ' + (payload.new.member_name || '') + ' — ' + (payload.new.activity_name || ''));
+      // refresh dashboard ถ้าอยู่ที่ tab dashboard
       if ($('panel-dashboard')?.classList.contains('active')) loadDashboard();
     })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'members' }, payload => {
@@ -623,6 +628,7 @@ async function doLogout() {
 let _scanStream = null, _scanRaf = null, _scanCooldown = false, _lastScannedToken = '';
 let _barcodeDetector = null;
 
+// สร้าง BarcodeDetector ถ้า browser รองรับ (Chrome/Android รองรับ)
 if ('BarcodeDetector' in window) {
   try { _barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] }); } catch(e) {}
 }
@@ -704,9 +710,11 @@ async function scanLoop() {
     let detected = null;
 
     if (_barcodeDetector) {
+      // ── วิธี 1: BarcodeDetector (native, เร็ว, แม่นบน Android Chrome) ──
       const codes = await _barcodeDetector.detect(video);
       if (codes.length > 0) detected = codes[0].rawValue;
     } else if (window.jsQR) {
+      // ── วิธี 2: jsQR fallback ──
       const canvas = $('qr-canvas-scan');
       canvas.width  = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -721,13 +729,14 @@ async function scanLoop() {
       _lastScannedToken = detected;
       _scanCooldown     = true;
       processScanToken(detected);
-      return;
+      return; // หยุด loop รอผล — processScanToken จะ resume
     }
-  } catch(e) {}
+  } catch(e) { /* ข้าม frame ที่ error */ }
 
   _scanRaf = requestAnimationFrame(scanLoop);
 }
 
+// fallback: แอดมินพิมพ์ token เอง
 function manualScanToken() {
   const input = $('manual-token-input');
   const token = (input?.value || '').trim();
@@ -777,6 +786,7 @@ async function processScanToken(token) {
     resultEl.textContent = '❌ ' + e.message;
   }
 
+  // Resume scan หลัง 3 วินาที
   setTimeout(() => {
     _scanCooldown     = false;
     _lastScannedToken = '';
@@ -786,7 +796,7 @@ async function processScanToken(token) {
 
 // ==================== Tabs ====================
 function switchTab(name) {
-  if (name !== 'scan') stopQRScanner();
+  if (name !== 'scan') stopQRScanner(); // หยุดกล้องเมื่อออกจาก tab scan
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
   $('tab-'+name).classList.add('active');
@@ -800,6 +810,7 @@ function switchTab(name) {
 }
 
 // ==================== Dashboard ====================
+// ── Manual Check-in ──────────────────────────────────────────────────────────
 let _mcSelectedId = null, _mcMembersCache = [];
 
 async function loadMcActivities() {
@@ -875,6 +886,9 @@ async function doManualCheckin() {
     btn.disabled = false; btn.textContent = '✅ เช็คอินให้สมาชิก';
   }
 }
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function loadDashboard() {
   try {
@@ -937,7 +951,7 @@ function renderTeamStats(cis) {
 async function loadMembers() {
   const team=$('filter-team').value;
   const tbody=$('members-list');
-  tbody.innerHTML='<tr><td colspan="8"><div class="spin"></div></td></tr>';
+  tbody.innerHTML='<tr><td colspan="7"><div class="spin"></div></td></tr>';
   try {
     let members=[];
     if (IS_CONFIGURED && db) {
@@ -949,7 +963,7 @@ async function loadMembers() {
       if (team) members=members.filter(m=>m.team===team);
       members.sort((a,b)=>(b.points||0)-(a.points||0));
     }
-    if (!members.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">ไม่พบสมาชิก</td></tr>'; return; }
+    if (!members.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">ไม่พบสมาชิก</td></tr>'; return; }
     tbody.innerHTML=members.map((m,i)=>`
       <tr class="clickable-row" onclick="openMemberPanel('${m.id}')">
         <td style="font-weight:700;color:#9ca3af">#${i+1}</td>
@@ -961,7 +975,7 @@ async function loadMembers() {
         <td style="text-align:center;font-weight:700;color:#E8274B">${m.points||0}</td>
         <td style="font-size:11px;color:#9ca3af">${fmt(m.registered_at)}</td>
       </tr>`).join('');
-  } catch(e) { tbody.innerHTML='<tr><td colspan="8" class="empty">เกิดข้อผิดพลาด: '+e.message+'</td></tr>'; }
+  } catch(e) { tbody.innerHTML='<tr><td colspan="7" class="empty">เกิดข้อผิดพลาด: '+e.message+'</td></tr>'; }
 }
 
 function exportCSV() {
@@ -1038,8 +1052,9 @@ async function createActivity() {
   $('act-create-btn').disabled=true;
   try {
     if (IS_CONFIGURED && db) {
+      // Upload image if a NEW file was selected
       let image_url = $('img-preview').src.startsWith('http') && !$('act-image').files[0]
-                      ? $('img-preview').src
+                      ? $('img-preview').src   // keep existing URL
                       : '';
       if (_resizedBlob) {
         const ext=_resizedBlob.type==='image/png'?'png':'jpg';
@@ -1049,13 +1064,16 @@ async function createActivity() {
         const {data:{publicUrl}}=db.storage.from('activity-images').getPublicUrl(path);
         image_url=publicUrl;
       }
+      // If image was cleared by user (no preview), reset to empty
       if ($('img-preview-wrap').style.display==='none') image_url='';
 
       if (_editingId) {
+        // EDIT MODE
         const {error}=await db.from('activities').update({name,type,checkin_mode,lat,lng,radius,pts_per_checkin:pts,start_time:start,end_time:end,image_url}).eq('id',_editingId);
         if (error) throw error;
         alert('✅ บันทึกการแก้ไขสำเร็จ');
       } else {
+        // CREATE MODE
         const {error}=await db.from('activities').insert({name,type,checkin_mode,lat,lng,radius,pts_per_checkin:pts,start_time:start,end_time:end,is_open:true,image_url});
         if (error) throw error;
         alert('✅ สร้างกิจกรรมสำเร็จ');
@@ -1072,7 +1090,7 @@ async function createActivity() {
       }
       localStorage.setItem('pgo_activities',JSON.stringify(acts));
     }
-    cancelEdit();
+    cancelEdit(); // resets form + button label
     loadActivities(); loadActivitiesForDraw();
   } catch(e) { showErr('act-err',e.message); }
   finally { $('act-create-btn').disabled=false; }
@@ -1123,6 +1141,12 @@ function fmtActivityTime(a) {
   if (a.start_time||a.end_time) return `${fmtDT(a.start_time)} – ${fmtDT(a.end_time)}`;
   return a.time_label||a.timeLabel||'ไม่กำหนดเวลา';
 }
+function isActivityInTimeWindow(a) {
+  const now=new Date();
+  if (a.start_time && now < new Date(a.start_time)) return false;
+  if (a.end_time   && now > new Date(a.end_time))   return false;
+  return true;
+}
 
 function editActivity(a) {
   _editingId = a.id;
@@ -1135,6 +1159,7 @@ function editActivity(a) {
   $('act-radius').value = a.radius||100;
   $('act-start').value  = a.start_time ? toLocalDatetime(a.start_time) : '';
   $('act-end').value    = a.end_time   ? toLocalDatetime(a.end_time)   : '';
+  // show existing image preview
   if (a.image_url) {
     $('img-preview').src=a.image_url;
     $('img-preview-wrap').style.display='block';
@@ -1156,8 +1181,8 @@ function cancelEdit() {
   $('act-cancel-btn').style.display='none';
 }
 
-let _editingId   = null;
-let _resizedBlob = null;
+let _editingId   = null; // null = create mode, string = edit mode
+let _resizedBlob = null; // stores resized image blob ready for upload
 
 function previewImage(input) {
   const file=input.files[0]; if(!file) return;
@@ -1167,6 +1192,7 @@ function previewImage(input) {
   img.onload=()=>{
     URL.revokeObjectURL(url);
     let w=img.width, h=img.height;
+    // scale down proportionally if exceeds max
     if (w>MAX_W||h>MAX_H) {
       const ratio=Math.min(MAX_W/w, MAX_H/h);
       w=Math.round(w*ratio); h=Math.round(h*ratio);
@@ -1204,6 +1230,7 @@ function useMyGPS() {
 }
 
 // ==================== Draw ====================
+
 async function loadActivitiesForDraw() {
   try {
     let acts=[];
@@ -1214,6 +1241,7 @@ async function loadActivitiesForDraw() {
       acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
     }
     $('draw-act').innerHTML='<option value="">เลือกกิจกรรม</option>'+acts.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+    // Init prize row if none exist
     if (!$('prize-rows-wrap').children.length) addPrizeRow();
     loadDrawHistory();
   } catch(e) {}
@@ -1448,6 +1476,7 @@ async function doDraw() {
   const prizeRows=getPrizeList();
   if (!prizeRows.length) { alert('กรุณาเพิ่มรายการรางวัลก่อน'); return; }
   if (!drawCandidates.length) { alert('ไม่มีผู้มีสิทธิ์สุ่ม'); return; }
+  // Build flat prize list: [{name, slot:{code,link,img}}]
   const prizes=[];
   prizeRows.forEach(row=>{ for(let i=0;i<row.qty;i++) prizes.push({name:row.name, slot:row.slots[i]||{}}); });
   const n=Math.min(prizes.length, drawCandidates.length);
@@ -1484,7 +1513,7 @@ async function doDraw() {
           await db.from('draw_winners').insert({activity_id:actId,member_id:winner.member_id||winner.memberId,member_name:winner.member_name||winner.memberName,member_gameid:winner.member_gameid||winner.memberGameId,member_team:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prize.name,prize_code:prize.slot?.code||null,prize_image_url:prize.slot?.img||null,prize_link:prize.slot?.link||null,prize_delivered:false});
         } else {
           const ws=JSON.parse(localStorage.getItem('pgo_draw_winners')||'[]');
-          ws.push({id:'dw_'+Date.now(),activityId:actId,memberId:winner.member_id||winner.memberId,memberName:winner.member_name||winner.memberName,memberGameId:winner.member_gameid||winner.memberGameId,memberTeam:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prize.name,prize_delivered:false,drawn_at:new Date().toISOString()});
+          ws.push({id:'dw_'+Date.now(),activityId:actId,memberId:winner.member_id||winner.memberId,memberName:winner.member_name||winner.memberName,memberGameId:winner.member_gameid||winner.memberGameId,memberTeam:winner.member_team||winner.memberTeam,prize_rank:rank,prize_name:prizeName,prize_delivered:false,drawn_at:new Date().toISOString()});
           localStorage.setItem('pgo_draw_winners',JSON.stringify(ws));
         }
       } catch(e) { console.error(e); }
@@ -1603,6 +1632,7 @@ function closeMemberPanel() {
 async function loadMemberDetail(id) {
   const body = document.getElementById('mp-body');
   try {
+    // Load member + checkins + prizes in parallel
     const [
       { data: member },
       { data: checkins },
@@ -1615,18 +1645,21 @@ async function loadMemberDetail(id) {
       db.from('members').select('id,points').order('points', { ascending: false })
     ]);
 
+    // Compute rank
     const rank = (allMembers || []).findIndex(m => m.id === id) + 1;
     const badge = getBadge(member.events || 0);
 
+    // Render header
     const av = member.team === 'mystic' ? 'av-mystic' : member.team === 'valor' ? 'av-valor' : 'av-instinct';
     const teamBadge = `<span class="badge ${TEAM_B[member.team]||''}">${TEAM_LABEL[member.team]||''}</span>`;
-    const achBadge = badge ? `<span class="ach-tag ach-${badge.cls}">${badge.icon} ${badge.label}</span>` : '';
+    const achBadge = `<span class="ach-tag ach-${badge.cls}">${badge.icon} ${badge.label}</span>`;
     document.getElementById('mp-av').className = `mp-av ${av}`;
     document.getElementById('mp-av').textContent = (member.name||'?').charAt(0).toUpperCase();
     document.getElementById('mp-name').textContent = member.name || '';
     document.getElementById('mp-gid').textContent = member.gameid || '';
     document.getElementById('mp-badges').innerHTML = teamBadge + achBadge;
 
+    // Render body
     const ciList = (checkins || []).length === 0
       ? '<div class="empty" style="padding:14px">ยังไม่มีประวัติ</div>'
       : (checkins || []).slice(0, 20).map(c => {
