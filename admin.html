@@ -555,6 +555,23 @@ function showErr(id, msg){ $(id).textContent=msg; show(id); }
 function hideErr(id) { hide(id); }
 function fmt(d)      { if(!d)return'-'; return new Date(d).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 
+// ป้องกัน XSS: ใช้ครอบข้อมูลที่มาจาก DB/ผู้ใช้ก่อนใส่ผ่าน innerHTML เสมอ
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// ป้องกัน XSS/JS-injection: ใช้ครอบค่าที่ฝังเป็น argument ในสตริง JS เดี่ยว ('...')
+// ภายใน attribute onclick="..." (ต้อง escape ทั้งระดับ JS string และระดับ HTML attribute)
+function escJs(s) {
+  return String(s ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '');
+}
+
 // ==================== Auth ====================
 async function doLogin() {
   const email = $('login-email').value.trim();
@@ -850,11 +867,11 @@ async function mcSearchMembers() {
     ).slice(0, 8);
     if (!filtered.length) { dd.innerHTML = '<div style="padding:12px;color:#9ca3af;font-size:13px">ไม่พบสมาชิก</div>'; dd.style.display = 'block'; return; }
     dd.innerHTML = filtered.map(m => `
-      <div onclick="mcSelectMember('${m.id}','${m.name}','${m.gameid||''}')"
+      <div onclick="mcSelectMember('${m.id}','${escJs(m.name)}','${escJs(m.gameid||'')}')"
            style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f3f4f6;font-size:13px"
            onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">
         <span class="badge ${TEAM_B[m.team]||''}" style="flex-shrink:0">${TEAM_LABEL[m.team]||''}</span>
-        <div><strong>${m.name}</strong><span style="color:#9ca3af;margin-left:6px">${m.gameid||''}</span></div>
+        <div><strong>${esc(m.name)}</strong><span style="color:#9ca3af;margin-left:6px">${esc(m.gameid||'')}</span></div>
       </div>`).join('');
     dd.style.display = 'block';
   } catch(e) {}
@@ -865,7 +882,7 @@ function mcSelectMember(id, name, gameid) {
   document.getElementById('mc-search').value = '';
   document.getElementById('mc-dropdown').style.display = 'none';
   const sel = document.getElementById('mc-selected');
-  sel.innerHTML = `✅ เลือก: <strong>${name}</strong> <span style="font-weight:400;color:#6b7280">${gameid}</span>`;
+  sel.innerHTML = `✅ เลือก: <strong>${esc(name)}</strong> <span style="font-weight:400;color:#6b7280">${esc(gameid)}</span>`;
   sel.style.display = 'block';
 }
 
@@ -934,9 +951,9 @@ function renderDashCI(cis) {
   if (!cis.length) { tbody.innerHTML='<tr><td colspan="5" class="empty">ยังไม่มีการเช็คอิน</td></tr>'; return; }
   tbody.innerHTML = cis.slice(0,20).map(c=>`
     <tr>
-      <td><strong>${c.member_name||c.memberName||''}</strong><br><span style="font-size:11px;color:#9ca3af">${c.member_gameid||c.memberGameId||''}</span></td>
+      <td><strong>${esc(c.member_name||c.memberName||'')}</strong><br><span style="font-size:11px;color:#9ca3af">${esc(c.member_gameid||c.memberGameId||'')}</span></td>
       <td><span class="badge ${TEAM_B[c.member_team||c.memberTeam]||''}">${TEAM_LABEL[c.member_team||c.memberTeam]||''}</span></td>
-      <td style="font-size:12px">${c.activity_name||c.activityName||''}</td>
+      <td style="font-size:12px">${esc(c.activity_name||c.activityName||'')}</td>
       <td style="font-size:12px">${fmt(c.timestamp)}</td>
       <td style="font-size:12px">${(c.distance||0).toLocaleString()}</td>
     </tr>`).join('');
@@ -978,8 +995,8 @@ async function loadMembers() {
     tbody.innerHTML=members.map((m,i)=>`
       <tr class="clickable-row" onclick="openMemberPanel('${m.id}')">
         <td style="font-weight:700;color:#9ca3af">#${i+1}</td>
-        <td><strong>${m.name}</strong></td>
-        <td style="font-size:12px;color:#6b7280">${m.gameid}</td>
+        <td><strong>${esc(m.name)}</strong></td>
+        <td style="font-size:12px;color:#6b7280">${esc(m.gameid)}</td>
         <td><span class="badge ${TEAM_B[m.team]||''}">${TEAM_LABEL[m.team]||''}</span></td>
         <td>${achTag(m.events||0)}</td>
         <td style="text-align:center">${m.events||0}</td>
@@ -1030,7 +1047,7 @@ async function loadActivities() {
         ${a.image_url?`<img src="${a.image_url}" alt="รูปกิจกรรม" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px">`:''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:700">${a.name}</div>
+            <div style="font-size:14px;font-weight:700">${esc(a.name)}</div>
             <div style="font-size:12px;color:#6b7280;margin-top:3px">📍 ${a.lat},${a.lng} · รัศมี ${a.radius}m · ⭐${a.pts_per_checkin||a.ptsPerCheckin||20}pt · เช็คอิน: <strong>${(a.checkin_mode||'qr').toUpperCase()}</strong></div>
             <div style="font-size:12px;color:#6b7280">⏰ ${fmtActivityTime(a)}</div>
           </div>
@@ -1397,13 +1414,13 @@ function renderWinnersTable(winners) {
     <tr>
       <td style="font-weight:700;color:#E8274B">#${w.prize_rank||i+1}</td>
       <td style="font-size:12px">
-        <div style="font-weight:600">${w.prize_name||'-'}</div>
-        ${w.prize_image_url?`<img src="${w.prize_image_url}" style="max-width:80px;max-height:50px;border-radius:6px;margin-top:4px;display:block">`:``}
-        ${w.prize_code?`<div style="font-family:monospace;font-size:11px;background:#f0fdf4;color:#15803d;padding:2px 6px;border-radius:4px;margin-top:3px;cursor:pointer" onclick="navigator.clipboard.writeText('${w.prize_code}')" title="คลิกเพื่อคัดลอก">${w.prize_code} 📋</div>`:''}
-        ${w.prize_link?`<a href="${w.prize_link}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">🔗 ลิงค์แลก</a>`:''}
+        <div style="font-weight:600">${esc(w.prize_name||'-')}</div>
+        ${w.prize_image_url?`<img src="${esc(w.prize_image_url)}" style="max-width:80px;max-height:50px;border-radius:6px;margin-top:4px;display:block">`:``}
+        ${w.prize_code?`<div style="font-family:monospace;font-size:11px;background:#f0fdf4;color:#15803d;padding:2px 6px;border-radius:4px;margin-top:3px;cursor:pointer" onclick="navigator.clipboard.writeText('${escJs(w.prize_code)}')" title="คลิกเพื่อคัดลอก">${esc(w.prize_code)} 📋</div>`:''}
+        ${w.prize_link?`<a href="${esc(w.prize_link)}" target="_blank" style="font-size:11px;color:#3b82f6;text-decoration:none">🔗 ลิงค์แลก</a>`:''}
       </td>
-      <td><strong>${w.member_name}</strong></td>
-      <td style="font-size:12px;color:#6b7280">${w.member_gameid||''}</td>
+      <td><strong>${esc(w.member_name)}</strong></td>
+      <td style="font-size:12px;color:#6b7280">${esc(w.member_gameid||'')}</td>
       <td><span class="badge ${TEAM_B[w.member_team]||''}">${TEAM_LABEL[w.member_team]||''}</span></td>
       <td style="font-size:11px;color:#9ca3af">${fmt(w.drawn_at)}</td>
       <td>${w.prize_delivered
@@ -1472,10 +1489,10 @@ async function loadDrawHistory() {
     if (!history.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">ยังไม่มีประวัติการสุ่ม</td></tr>'; return; }
     tbody.innerHTML=history.map((w,i)=>`
       <tr>
-        <td style="font-size:12px;color:#6b7280">${actMap[w.activity_id||w.activityId]||'?'}</td>
+        <td style="font-size:12px;color:#6b7280">${esc(actMap[w.activity_id||w.activityId]||'?')}</td>
         <td style="font-weight:700;color:#E8274B">#${w.prize_rank||i+1}</td>
-        <td style="font-size:12px">${w.prize_name||'-'}</td>
-        <td><strong>${w.member_name}</strong></td>
+        <td style="font-size:12px">${esc(w.prize_name||'-')}</td>
+        <td><strong>${esc(w.member_name)}</strong></td>
         <td><span class="badge ${TEAM_B[w.member_team]||''}">${TEAM_LABEL[w.member_team]||''}</span></td>
         <td style="font-size:11px;color:#9ca3af">${fmt(w.drawn_at)}</td>
         <td>${w.prize_delivered?'<span style="color:#16a34a;font-size:12px;font-weight:600">✅ ส่งแล้ว</span>':'<span style="color:#9ca3af;font-size:12px">รอส่ง</span>'}</td>
@@ -1513,11 +1530,11 @@ async function doDraw() {
       const prize=prizes[idx], rank=drawWinners.length+idx+1;
       $('draw-winner-area').innerHTML+=`
         <div class="draw-winner-card" style="margin-bottom:8px">
-          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">🎁 ${prize.name} · อันดับ #${rank}</div>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">🎁 ${esc(prize.name)} · อันดับ #${rank}</div>
           <div style="font-size:22px">🎉</div>
-          <div style="font-size:20px;font-weight:800">${winner.member_name||winner.memberName}</div>
-          <div style="font-size:13px;color:#6b7280">${winner.member_gameid||winner.memberGameId||''} · ${TEAM_LABEL[winner.member_team||winner.memberTeam]||''}</div>
-          ${prize.slot?.code?`<div style="font-size:12px;margin-top:6px;background:#f0fdf4;border-radius:6px;padding:4px 8px;font-family:monospace;color:#15803d">${prize.slot.code}</div>`:''}
+          <div style="font-size:20px;font-weight:800">${esc(winner.member_name||winner.memberName)}</div>
+          <div style="font-size:13px;color:#6b7280">${esc(winner.member_gameid||winner.memberGameId||'')} · ${TEAM_LABEL[winner.member_team||winner.memberTeam]||''}</div>
+          ${prize.slot?.code?`<div style="font-size:12px;margin-top:6px;background:#f0fdf4;border-radius:6px;padding:4px 8px;font-family:monospace;color:#15803d">${esc(prize.slot.code)}</div>`:''}
         </div>`;
       try {
         if (IS_CONFIGURED && db) {
@@ -1545,9 +1562,9 @@ async function loadTeam() {
       if (!(data||[]).length) { tbody.innerHTML='<tr><td colspan="5" class="empty">ยังไม่มีทีมงาน</td></tr>'; return; }
       tbody.innerHTML=(data||[]).map(m=>`
         <tr>
-          <td><strong>${m.name}</strong></td>
-          <td style="font-size:12px;color:#6b7280">${m.email}</td>
-          <td><span class="badge ${ROLE_B[m.role]||''}">${m.role}</span></td>
+          <td><strong>${esc(m.name)}</strong></td>
+          <td style="font-size:12px;color:#6b7280">${esc(m.email)}</td>
+          <td><span class="badge ${ROLE_B[m.role]||''}">${esc(m.role)}</span></td>
           <td style="font-size:11px;color:#9ca3af">${fmt(m.created_at)}</td>
           <td><button class="btn btn-danger btn-sm" onclick="removeTeamMember('${m.id}')">ลบ</button></td>
         </tr>`).join('');
@@ -1653,10 +1670,10 @@ async function loadPinResets() {
         const ds = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
         return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6">
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:700">${r.gameid}</div>
+            <div style="font-size:14px;font-weight:700">${esc(r.gameid)}</div>
             <div style="font-size:11px;color:var(--muted)">ขอ reset เมื่อ ${ds}</div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="adminSetNewPin('${r.member_id}','${r.gameid}','${r.id}')">🔑 Reset</button>
+          <button class="btn btn-primary btn-sm" onclick="adminSetNewPin('${r.member_id}','${escJs(r.gameid)}','${r.id}')">🔑 Reset</button>
         </div>`;
       }).join('');
     } else {
@@ -1733,7 +1750,7 @@ async function loadMemberDetail(id) {
           return `<div class="mp-ci-row">
             <span style="font-size:20px">${icons[c.activity_type]||'📍'}</span>
             <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.activity_name||''}</div>
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.activity_name||'')}</div>
               <div style="font-size:11px;color:var(--muted)">${ds}</div>
             </div>
             <span style="font-size:13px;font-weight:800;color:var(--red)">+${c.pts_earned||0}</span>
@@ -1746,7 +1763,7 @@ async function loadMemberDetail(id) {
           const d = new Date(p.drawn_at||'');
           const ds = `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
           return `<div class="mp-ci-row"><span style="font-size:20px">🏆</span>
-            <div style="flex:1"><div style="font-size:13px;font-weight:600">${p.activities?.name||'กิจกรรม'}</div>
+            <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(p.activities?.name||'กิจกรรม')}</div>
             <div style="font-size:11px;color:var(--muted)">${ds}</div></div>
             <span style="font-size:11px;font-weight:700;color:#15803d">ได้รางวัล</span></div>`;
         }).join('');
@@ -1774,8 +1791,8 @@ async function loadMemberDetail(id) {
         <div style="font-size:13px;color:var(--text);display:grid;grid-template-columns:auto 1fr;gap:7px 12px">
           <span style="color:var(--muted)">ลงทะเบียนเมื่อ</span><span>${joinDate}</span>
           <span style="color:var(--muted)">อัปเดตล่าสุด</span><span>${updatedDate}</span>
-          <span style="color:var(--muted)">เบอร์โทร</span><span>${phone}</span>
-          <span style="color:var(--muted)">อีเมล (Google)</span><span style="word-break:break-all">${email}</span>
+          <span style="color:var(--muted)">เบอร์โทร</span><span>${esc(phone)}</span>
+          <span style="color:var(--muted)">อีเมล (Google)</span><span style="word-break:break-all">${esc(email)}</span>
           <span style="color:var(--muted)">PIN เข้าสู่ระบบ</span><span>${pinInfo}</span>
         </div>
       </div>
@@ -1806,7 +1823,7 @@ async function loadMemberDetail(id) {
                <button class="btn btn-danger btn-sm" style="padding:10px 14px;white-space:nowrap" onclick="mpSuspend('${id}')">⛔ ระงับ</button>
              </div>`}
         <button class="btn btn-secondary" onclick="mpResetPin('${id}')">🔑 Reset PIN สมาชิกนี้</button>
-        <button class="btn btn-danger btn-sm" style="width:100%;padding:11px" onclick="mpDeleteMember('${id}','${(member.name||'').replace(/'/g,'')}')">🗑 ลบสมาชิก</button>
+        <button class="btn btn-danger btn-sm" style="width:100%;padding:11px" onclick="mpDeleteMember('${id}','${escJs(member.name||'')}')">🗑 ลบสมาชิก</button>
       </div>`;
   } catch(e) {
     body.innerHTML = `<div class="err-box">โหลดข้อมูลไม่ได้: ${e.message}</div>`;
