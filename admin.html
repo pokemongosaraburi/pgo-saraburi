@@ -475,7 +475,7 @@ select.form-input{padding:10px 14px}
   <div class="tab-panel" id="panel-team">
     <div class="card">
       <h2>➕ เพิ่มทีมงาน</h2>
-      <div class="info-box">ใส่อีเมลที่ได้รับการ Invite จาก Supabase Dashboard → Authentication → Users แล้ว</div>
+      <div class="info-box">กรอกอีเมล ชื่อ และสิทธิ์ แล้วกด "+ เพิ่ม" — ระบบจะส่งอีเมลเชิญให้ตั้งรหัสผ่านเองและเพิ่มสิทธิ์ให้ในขั้นตอนเดียว (เฉพาะ Superadmin เท่านั้นที่ทำได้)</div>
       <div class="err-box hidden" id="team-err"></div>
       <div class="flex-row" style="margin-bottom:10px">
         <input class="form-input" id="team-email" type="email" placeholder="email@example.com" style="flex:1;min-width:160px">
@@ -485,7 +485,7 @@ select.form-input{padding:10px 14px}
           <option value="admin">Admin</option>
           <option value="superadmin">Superadmin</option>
         </select>
-        <button class="btn btn-primary btn-sm" onclick="addTeamMember()">+ เพิ่ม</button>
+        <button class="btn btn-primary btn-sm" id="team-add-btn" onclick="addTeamMember()">+ เพิ่ม</button>
       </div>
     </div>
     <div class="card">
@@ -1563,14 +1563,18 @@ async function addTeamMember() {
   const role= $('team-role').value;
   hideErr('team-err');
   if (!email||!name) { showErr('team-err','กรุณากรอก Email และชื่อ'); return; }
+  const btn=$('team-add-btn');
+  btn.disabled=true; const oldLabel=btn.textContent; btn.textContent='กำลังเพิ่ม...';
   try {
     if (IS_CONFIGURED && db) {
-      const {error}=await db.from('team_members').insert({email,name,role});
+      const { data, error } = await db.functions.invoke('invite-team-member', { body: { email, name, role } });
       if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
       $('team-email').value=''; $('team-name').value='';
       loadTeam();
     }
-  } catch(e) { showErr('team-err',e.message); }
+  } catch(e) { showErr('team-err', e.message||'เพิ่มทีมงานไม่สำเร็จ'); }
+  finally { btn.disabled=false; btn.textContent=oldLabel; }
 }
 
 async function removeTeamMember(id) {
