@@ -1578,11 +1578,22 @@ async function addTeamMember() {
 }
 
 async function removeTeamMember(id) {
-  const ok = await showConfirm({ icon:'🗑', title:'ลบทีมงาน?', message:'สิทธิ์แอดมินของคนนี้จะถูกยกเลิก', okText:'ลบทีมงาน' });
+  const ok = await showConfirm({ icon:'🗑', title:'ลบทีมงาน?', message:'สิทธิ์แอดมินของคนนี้จะถูกยกเลิก และบัญชีเข้าสู่ระบบจะถูกลบถาวร (ถ้าเชิญกลับมาใหม่ ต้องตั้งรหัสผ่านใหม่)', okText:'ลบทีมงาน' });
   if (!ok) return;
   try {
-    if (IS_CONFIGURED && db) { await db.from('team_members').delete().eq('id',id); loadTeam(); }
-  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+    if (IS_CONFIGURED && db) {
+      const { data, error } = await db.functions.invoke('remove-team-member', { body: { id } });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      loadTeam();
+    }
+  } catch(e) {
+    const msg = (e.message||'').includes('CANNOT_DELETE_SELF') ? 'ไม่สามารถลบบัญชีตัวเองได้'
+      : (e.message||'').includes('FORBIDDEN') ? 'เฉพาะ Superadmin เท่านั้นที่ลบทีมงานได้'
+      : (e.message||'').includes('NOT_FOUND') ? 'ไม่พบทีมงานนี้'
+      : e.message||'ลบทีมงานไม่สำเร็จ';
+    alert('เกิดข้อผิดพลาด: '+msg);
+  }
 }
 
 // ==================== Seasonal Splash Image ====================
