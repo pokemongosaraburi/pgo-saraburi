@@ -1396,7 +1396,7 @@ async function loadHistory() {
   try {
     let rows = [];
     if (IS_CONFIGURED && db && currentMember) {
-      const { data, error } = await db.rpc('get_member_checkins', { p_member_id: currentMember.id });
+      const { data, error } = await db.rpc('get_member_checkins', { p_member_id: currentMember.id, p_fp: currentMember.fp || getFingerprint() });
       if (!error) rows = data || [];
     }
     if (!rows.length) {

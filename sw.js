@@ -13,15 +13,19 @@ self.addEventListener('push', e => {
   let data = { title: 'PGO Saraburi', body: 'มีกิจกรรมใหม่!', url: '/' };
   try { data = { ...data, ...e.data.json() }; } catch (_) {}
 
+  const options = {
+    body: data.body,
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: 'pgo-event',
+    renotify: true,
+    data: { url: data.url },
+  };
+  // รูปภาพประกอบ (rich notification) — เบราว์เซอร์ที่รองรับ (Chrome/Android) จะแสดงเป็นภาพขนาดใหญ่ในแจ้งเตือน
+  if (data.image) options.image = data.image;
+
   e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body:    data.body,
-      icon:    '/icon-192.png',
-      badge:   '/icon-192.png',
-      tag:     'pgo-event',
-      renotify: true,
-      data:    { url: data.url },
-    })
+    self.registration.showNotification(data.title, options)
   );
 });
 

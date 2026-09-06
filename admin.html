@@ -506,6 +506,36 @@ select.form-input{padding:10px 14px}
       </div>
       <img id="splash-preview" src="" alt="ตัวอย่างรูป Splash" style="display:none;max-width:220px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.15)">
     </div>
+    <div class="card">
+      <h2>📣 ส่งการแจ้งเตือน (Push Notification)</h2>
+      <div class="info-box">ส่งแจ้งเตือนไปยังสมาชิกทุกคนที่เปิดรับการแจ้งเตือนไว้ กดการแจ้งเตือนแล้วแอปจะพาไปหน้าที่เลือกด้านล่าง</div>
+      <div class="err-box hidden" id="push-err"></div>
+      <div class="form-group">
+        <label class="form-label">หัวข้อ</label>
+        <input class="form-input" id="push-title" type="text" placeholder="เช่น 🎉 มีกิจกรรมใหม่!" maxlength="80">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ข้อความ</label>
+        <textarea class="form-input" id="push-body" rows="3" placeholder="รายละเอียดการแจ้งเตือน..." maxlength="180"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group">
+          <label class="form-label">หน้าปลายทาง (เมื่อกดแจ้งเตือน)</label>
+          <select class="form-input" id="push-dest">
+            <option value="home">🏠 หน้าหลัก</option>
+            <option value="leaderboard">🏆 Leaderboard</option>
+            <option value="checkin-history">📋 ประวัติเช็คอิน</option>
+            <option value="badge">🎖 ตราสัญลักษณ์</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">รูปภาพประกอบ (ไม่บังคับ)</label>
+          <input class="form-input" id="push-image" type="url" placeholder="https://...">
+        </div>
+      </div>
+      <button class="btn btn-primary" id="push-send-btn" onclick="sendPushNotification()">📣 ส่งแจ้งเตือน</button>
+      <div id="push-result" style="display:none;text-align:center;font-size:13px;padding:8px;border-radius:8px;margin-top:10px"></div>
+    </div>
   </div>
 
 </div><!-- .app -->
@@ -1649,6 +1679,43 @@ async function saveSplashImage() {
 async function clearSplashImage() {
   $('splash-url').value = '';
   await saveSplashImage();
+}
+
+// ==================== Push Notification ====================
+async function sendPushNotification() {
+  hideErr('push-err');
+  const title = $('push-title').value.trim();
+  const body  = $('push-body').value.trim();
+  const dest  = $('push-dest').value;
+  const image = $('push-image').value.trim();
+  const resEl = $('push-result');
+  resEl.style.display = 'none';
+
+  if (!title || !body) { showErr('push-err','กรุณากรอกหัวข้อและข้อความ'); return; }
+  if (image && !/^https?:\/\//i.test(image)) { showErr('push-err','URL รูปภาพต้องขึ้นต้นด้วย http:// หรือ https://'); return; }
+
+  const btn = $('push-send-btn');
+  btn.disabled = true; const oldLabel = btn.textContent; btn.textContent = 'กำลังส่ง...';
+  try {
+    if (IS_CONFIGURED && db) {
+      const url = `${location.origin}${location.pathname}?go=${encodeURIComponent(dest)}`;
+      const { data, error } = await db.functions.invoke('send-push', { body: { title, body, url, image: image || undefined } });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      resEl.style.display = 'block';
+      resEl.style.background = '#dcfce7'; resEl.style.color = '#166534';
+      const total = data && data.total;
+      resEl.textContent = 'ส่งแจ้งเตือนสำเร็จ ✅' + (total != null ? ` (${total} เครื่อง)` : '');
+      $('push-title').value=''; $('push-body').value=''; $('push-image').value='';
+    }
+  } catch(e) {
+    const msg = (e.message||'').includes('UNAUTHENTICATED') ? 'กรุณาเข้าสู่ระบบใหม่'
+      : (e.message||'').includes('FORBIDDEN') ? 'เฉพาะทีมงานเท่านั้นที่ส่งแจ้งเตือนได้'
+      : e.message || 'ส่งแจ้งเตือนไม่สำเร็จ';
+    showErr('push-err', msg);
+  } finally {
+    btn.disabled = false; btn.textContent = oldLabel;
+  }
 }
 
 // ==================== PIN Reset Requests ====================
