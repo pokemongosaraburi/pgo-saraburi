@@ -329,6 +329,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         </button>
       </div>
     </div>
+    <div id="push-banner" style="display:none;margin:0 0 12px;padding:12px 14px;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;text-align:center">
+      <div style="font-size:13px;color:#374151;margin-bottom:10px">🔔 เปิดการแจ้งเตือน เพื่อไม่พลาดกิจกรรมและข่าวสารใหม่ๆ</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" style="width:auto;padding:8px 16px;margin-top:0" onclick="enablePushNotification()">🔔 เปิดรับการแจ้งเตือน</button>
+        <button class="btn btn-secondary btn-sm" style="width:auto;padding:8px 16px;margin-top:0" onclick="dismissPushBanner()">ไว้ทีหลัง</button>
+      </div>
+    </div>
     <div class="sec-label">กิจกรรมที่เปิดอยู่</div>
     <div id="activity-list"></div>
   </div>
@@ -498,6 +505,9 @@ if (IS_CONFIGURED) {
   db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
+// VAPID public key (ใช้ฝั่ง client ตอน subscribe push เท่านั้น — ปลอดภัยที่จะฝังตรงนี้)
+const VAPID_PUBLIC_KEY = 'BKR7my2pD_BsOhUi0TewJfQ28eBGLkKv4wfkmLUfkV9lb5DgWRjR0dHjcJNEPgA_j5XwTq59cHOOOtWXoAjRNqg';
+
 // ===== Helpers =====
 const TEAM_LABEL = { mystic:'💙 Mystic', valor:'❤️ Valor', instinct:'💛 Instinct' };
 const TEAM_BADGE = { mystic:'badge-blue', valor:'badge-red', instinct:'badge-warn' };
@@ -520,6 +530,94 @@ function showLoader(text) {
 function hideLoader() { document.getElementById('global-loader').classList.add('hidden'); }
 
 function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+
+// ===== Push Notification =====
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function pushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try { return await navigator.serviceWorker.register('/sw.js'); }
+  catch (e) { console.warn('sw register failed', e); return null; }
+}
+
+// สมัครรับ push แล้วบันทึก subscription ลง DB (เรียกซ้ำได้ปลอดภัย — upsert ตาม endpoint)
+async function trySubscribePush(member) {
+  if (!pushSupported() || !IS_CONFIGURED || !db || !member) return false;
+  if (Notification.permission !== 'granted') return false;
+  try {
+    const reg = await registerServiceWorker();
+    if (!reg) return false;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const j = sub.toJSON();
+    await db.rpc('upsert_push_subscription', {
+      p_member_id: member.id,
+      p_endpoint: j.endpoint,
+      p_p256dh: j.keys.p256dh,
+      p_auth: j.keys.auth,
+    });
+    return true;
+  } catch (e) { console.warn('push subscribe failed', e); return false; }
+}
+
+function dismissPushBanner() {
+  localStorage.setItem('pgo_push_dismissed', '1');
+  const el = document.getElementById('push-banner');
+  if (el) el.style.display = 'none';
+}
+
+async function enablePushNotification() {
+  const banner = document.getElementById('push-banner');
+  if (!pushSupported()) { alert('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน'); dismissPushBanner(); return; }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      const ok = await trySubscribePush(currentMember);
+      if (banner) banner.style.display = 'none';
+      localStorage.setItem('pgo_push_dismissed', '1');
+      if (!ok) console.warn('subscribe push ไม่สำเร็จหลังได้รับ permission');
+    } else {
+      dismissPushBanner();
+    }
+  } catch (e) {
+    console.warn('request permission failed', e);
+    dismissPushBanner();
+  }
+}
+
+// เรียกจาก renderHome(): ถ้า permission ยังไม่เคยถาม → โชว์แบนเนอร์ชวนเปิด
+// ถ้าเปิดอยู่แล้ว → subscribe เงียบๆ (เผื่อ subscription เดิมหลุดหรือยังไม่เคยบันทึกได้สำเร็จ)
+function maybeShowPushBanner(member) {
+  const banner = document.getElementById('push-banner');
+  if (!banner) return;
+  if (!pushSupported()) { banner.style.display = 'none'; return; }
+  if (Notification.permission === 'granted') {
+    banner.style.display = 'none';
+    trySubscribePush(member);
+  } else if (Notification.permission === 'denied') {
+    banner.style.display = 'none';
+  } else if (localStorage.getItem('pgo_push_dismissed') === '1') {
+    banner.style.display = 'none';
+  } else {
+    banner.style.display = 'block';
+  }
+}
 
 // ===== Device Fingerprint =====
 function getFingerprint() {
@@ -878,6 +976,7 @@ async function renderHome() {
     }
   }
 
+  maybeShowPushBanner(member);
   await renderActivityList(member);
 }
 
@@ -1485,6 +1584,7 @@ async function applySeasonalSplash() {
 // ===== Init =====
 window.addEventListener('DOMContentLoaded', () => {
   applySeasonalSplash();
+  registerServiceWorker();
   const params = new URLSearchParams(location.search);
   const actId  = params.get('activity');
   // เก็บ deep-link target จาก push notification
