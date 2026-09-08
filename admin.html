@@ -536,6 +536,23 @@ select.form-input{padding:10px 14px}
       <button class="btn btn-primary" id="push-send-btn" onclick="sendPushNotification()">📣 ส่งแจ้งเตือน</button>
       <div id="push-result" style="display:none;text-align:center;font-size:13px;padding:8px;border-radius:8px;margin-top:10px"></div>
     </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0">📋 สมาชิกที่เปิดรับแจ้งเตือนอยู่ตอนนี้</h2>
+        <button class="btn btn-secondary btn-sm" onclick="loadPushSubscribers()">↻ รีเฟรช</button>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>ชื่อ</th><th>Trainer</th><th>จำนวนอุปกรณ์</th><th>เปิดล่าสุด</th></tr></thead>
+        <tbody id="push-subs-list"><tr><td colspan="4" class="empty">กำลังโหลด...</td></tr></tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0">🕘 ประวัติการส่งแจ้งเตือน</h2>
+        <button class="btn btn-secondary btn-sm" onclick="loadPushLogs()">↻ รีเฟรช</button>
+      </div>
+      <div id="push-logs-list"><div class="empty">กำลังโหลด...</div></div>
+    </div>
   </div>
 
 </div><!-- .app -->
@@ -863,7 +880,7 @@ function switchTab(name) {
   if (name==='members')    { loadMembers(); loadPinResets(); }
   if (name==='activities') loadActivities();
   if (name==='draw')       loadDrawCandidates();
-  if (name==='team')       { loadTeam(); loadSplashImage(); }
+  if (name==='team')       { loadTeam(); loadSplashImage(); loadPushSubscribers(); loadPushLogs(); }
   if (name==='scan')       { _mcMembersCache = []; loadMcActivities(); }
 }
 
@@ -1710,6 +1727,7 @@ async function sendPushNotification() {
       const total = data && data.total;
       resEl.textContent = 'ส่งแจ้งเตือนสำเร็จ ✅' + (total != null ? ` (${total} เครื่อง)` : '');
       $('push-title').value=''; $('push-body').value=''; $('push-image').value='';
+      loadPushLogs();
     }
   } catch(e) {
     const msg = (e.message||'').includes('UNAUTHENTICATED') ? 'กรุณาเข้าสู่ระบบใหม่'
@@ -1719,6 +1737,69 @@ async function sendPushNotification() {
   } finally {
     btn.disabled = false; btn.textContent = oldLabel;
   }
+}
+
+// ==================== รายชื่อผู้เปิดรับแจ้งเตือน + ประวัติการส่ง ====================
+async function loadPushSubscribers() {
+  const tb = $('push-subs-list');
+  if (!tb) return;
+  if (!IS_CONFIGURED || !db) { tb.innerHTML = '<tr><td colspan="4" class="empty">ยังไม่เชื่อมต่อฐานข้อมูล</td></tr>'; return; }
+  try {
+    const { data, error } = await db.rpc('get_push_subscribers');
+    if (error) throw error;
+    if (!data || !data.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">ยังไม่มีสมาชิกเปิดรับแจ้งเตือน</td></tr>'; return; }
+    tb.innerHTML = data.map(r => `<tr>
+      <td>${esc(r.name || '(ไม่ทราบชื่อ)')}</td>
+      <td>${esc(r.gameid || '-')}</td>
+      <td>${esc(r.device_count)}</td>
+      <td>${fmt(r.last_subscribed)}</td>
+    </tr>`).join('');
+  } catch(e) { tb.innerHTML = `<tr><td colspan="4" class="empty">โหลดไม่สำเร็จ: ${esc(e.message)}</td></tr>`; }
+}
+
+let _pushLogsCache = [];
+async function loadPushLogs() {
+  const el = $('push-logs-list');
+  if (!el) return;
+  if (!IS_CONFIGURED || !db) { el.innerHTML = '<div class="empty">ยังไม่เชื่อมต่อฐานข้อมูล</div>'; return; }
+  try {
+    const { data, error } = await db.rpc('get_push_notification_logs');
+    if (error) throw error;
+    _pushLogsCache = data || [];
+    if (!_pushLogsCache.length) { el.innerHTML = '<div class="empty">ยังไม่มีประวัติการส่ง</div>'; return; }
+    el.innerHTML = _pushLogsCache.map(l => `
+      <div class="push-log-row" style="border:1px solid #f0f0f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="togglePushLogRecipients('${l.id}', this)">
+        <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div style="font-weight:700;font-size:13px">${esc(l.title)}</div>
+          <div style="font-size:11px;color:#9ca3af">${fmt(l.sent_at)}</div>
+        </div>
+        <div style="font-size:12px;color:#6b7280;margin-top:2px">${esc(l.body||'')}</div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:4px">
+          ส่งโดย ${esc(l.sent_by||'-')} · สำเร็จ ${esc(l.success_count)}/${esc(l.total_recipients)} เครื่อง${l.fail_count ? ` · ล้มเหลว ${esc(l.fail_count)}` : ''}
+        </div>
+        <div class="push-log-recipients" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:12px"></div>
+      </div>
+    `).join('');
+  } catch(e) { el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${esc(e.message)}</div>`; }
+}
+
+async function togglePushLogRecipients(logId, rowEl) {
+  const box = rowEl.querySelector('.push-log-recipients');
+  if (!box) return;
+  const willShow = box.style.display === 'none';
+  box.style.display = willShow ? 'block' : 'none';
+  if (!willShow || box.dataset.loaded === '1') return;
+  box.innerHTML = 'กำลังโหลด...';
+  try {
+    const { data, error } = await db.rpc('get_push_notification_recipients', { p_log_id: logId });
+    if (error) throw error;
+    if (!data || !data.length) { box.innerHTML = 'ไม่มีข้อมูลผู้รับ'; box.dataset.loaded = '1'; return; }
+    box.innerHTML = data.map(r => `<div style="display:flex;justify-content:space-between;padding:2px 0">
+      <span>${esc(r.name || '(ไม่ทราบชื่อ)')} ${r.gameid ? '· '+esc(r.gameid) : ''}</span>
+      <span style="color:${r.status==='sent' ? '#16a34a' : '#dc2626'}">${r.status==='sent' ? '✅ สำเร็จ' : '❌ ล้มเหลว'}</span>
+    </div>`).join('');
+    box.dataset.loaded = '1';
+  } catch(e) { box.innerHTML = 'โหลดไม่สำเร็จ: ' + esc(e.message); }
 }
 
 // ==================== PIN Reset Requests ====================
