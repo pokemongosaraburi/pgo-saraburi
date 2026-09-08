@@ -1698,7 +1698,10 @@ async function sendPushNotification() {
   btn.disabled = true; const oldLabel = btn.textContent; btn.textContent = 'กำลังส่ง...';
   try {
     if (IS_CONFIGURED && db) {
-      const url = `${location.origin}${location.pathname}?go=${encodeURIComponent(dest)}`;
+      // สำคัญ: ต้องชี้ไปหน้าสมาชิก (root ของเว็บ) เสมอ ห้ามใช้ location.pathname ของหน้านี้
+      // เพราะโค้ดนี้รันอยู่ใน admin.html ถ้าใช้ location.pathname จะได้ URL เป็น /admin.html
+      // ทำให้กดแจ้งเตือนแล้วเด้งไปหน้า login แอดมินแทนที่จะเป็นหน้าสมาชิก
+      const url = `${location.origin}/?go=${encodeURIComponent(dest)}`;
       const { data, error } = await db.functions.invoke('send-push', { body: { title, body, url, image: image || undefined } });
       if (error) throw error;
       if (data && data.error) throw new Error(data.error);
