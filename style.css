@@ -356,16 +356,23 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 }
 @media(min-width:768px){
   #page-member{background:radial-gradient(140% 100% at 50% -10%,#ff5470 0%,var(--red) 30%,var(--red-deep) 62%,#0f0308 100%);align-items:center;min-height:100vh;padding:32px 16px;position:relative;overflow-x:hidden}
+  /* max-height ครอบ .app ไว้ — ข้างในใช้ flex:1;min-height:0 ล้วนๆ (ไม่เดาความสูงด้วย calc)
+     เพื่อให้ topbar/foot คงอยู่เต็ม ไม่โดนตัด และ .content ยืด-หดScroll ได้เองพอดีเป๊ะเสมอ */
   #page-member .app{border-radius:var(--radius-xl);min-height:auto;max-height:calc(100vh - 64px);overflow:hidden;box-shadow:0 50px 120px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06);margin:0 auto}
-  #page-member .screen{min-height:auto}
-  #page-member .content{max-height:calc(100vh - 200px)}
+  #page-member .screen{min-height:0}
+  #page-member .topbar{flex-shrink:0}
+  #page-member .content{flex:1;min-height:0;max-height:none}
+  #page-member .foot{flex-shrink:0}
   #page-member #splash{border-radius:var(--radius-xl)}
 }
 @media(min-width:1024px){
-  #page-member .app{max-width:440px}
+  #page-member .app{max-width:480px}
 }
 @media(min-width:1280px){
-  #page-member .app{max-width:460px;box-shadow:0 60px 140px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06)}
+  #page-member .app{max-width:520px;box-shadow:0 60px 140px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06)}
+}
+@media(min-width:1600px){
+  #page-member .app{max-width:560px}
 }
 
 /* --- Admin app --- */
