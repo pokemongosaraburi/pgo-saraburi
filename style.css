@@ -364,12 +364,25 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
   #page-member .content{flex:1;min-height:0;max-height:none}
   #page-member .foot{flex-shrink:0}
   #page-member #splash{border-radius:var(--radius-xl)}
+  /* เนื้อหาใน splash (โลโก้/หัวข้อ/badge) เป็นพิกเซล fixed โดยธรรมชาติ ไม่ขยายตามกรอบการ์ดเอง
+     ต้องสั่งขยายตรงๆ ที่ breakpoint นี้ ไม่งั้นกรอบใหญ่ขึ้นแต่เนื้อหายังดูเล็กเท่าเดิม */
+  #page-member .logo-halo{width:200px;height:200px;margin-bottom:22px}
+  #page-member .logo-ring{width:176px;height:176px}
+  #page-member .splash-badge{font-size:12px;padding:6px 16px;margin-bottom:12px}
+  #page-member #splash h1{font-size:36px;margin-bottom:10px}
+  #page-member #splash p{font-size:15.5px}
+  #page-member .splash-loading{margin-top:34px}
+  #page-member .splash-loading span{width:7px;height:7px}
 }
 @media(min-width:1024px){
   #page-member .app{max-width:480px}
 }
 @media(min-width:1280px){
   #page-member .app{max-width:520px;box-shadow:0 60px 140px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.06)}
+  #page-member .logo-halo{width:224px;height:224px}
+  #page-member .logo-ring{width:196px;height:196px}
+  #page-member #splash h1{font-size:40px}
+  #page-member #splash p{font-size:16.5px}
 }
 @media(min-width:1600px){
   #page-member .app{max-width:560px}
