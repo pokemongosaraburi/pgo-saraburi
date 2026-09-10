@@ -46,6 +46,9 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 @keyframes haloPulse{0%,100%{transform:scale(.92);opacity:.55}50%{transform:scale(1.08);opacity:1}}
 @keyframes logoIn{from{opacity:0;transform:scale(.8) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes scanline{0%{top:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+@keyframes shimmerSweep{0%{left:-60%}100%{left:140%}}
+@keyframes splashFloat{0%{transform:translateY(0) scale(.6);opacity:0}12%{opacity:.9}85%{opacity:.35}100%{transform:translateY(-620px) scale(1);opacity:0}}
+@keyframes splashDot{0%,80%,100%{transform:scale(.6);opacity:.35}40%{transform:scale(1);opacity:1}}
 
 /* ═══ 3) SHARED COMPONENTS ═══ */
 .sec-label{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px}
@@ -122,14 +125,39 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 #page-member .loading-overlay.hidden{display:none}
 #page-member .pokeball-spin{width:44px;height:44px;animation:spin .9s linear infinite;filter:drop-shadow(0 2px 8px rgba(232,39,75,0.3))}
 
-/* Splash — โลโก้เป็นภาพนิ่ง มี halo เรืองแสงเบาๆ แทนการหมุน */
-#page-member #splash{background:radial-gradient(120% 90% at 50% -10%,#ff5470 0%,var(--red) 32%,var(--red-deep) 68%,#180509 100%);align-items:center;justify-content:center;color:#fff;gap:0;position:relative;overflow:hidden}
-#page-member #splash::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.16),transparent 62%);pointer-events:none}
-#page-member .logo-halo{position:relative;width:168px;height:168px;display:flex;align-items:center;justify-content:center;margin-bottom:24px;animation:logoIn .7s var(--ease) both}
+/* Splash — โลโก้เป็นภาพนิ่ง มี halo + shimmer เบาๆ แทนการหมุน, มีอนุภาคลอยเบาๆ ให้ดูมีชีวิตชีวาแบบพรีเมียม */
+#page-member #splash{
+  background:
+    radial-gradient(circle at 50% 38%,rgba(255,255,255,.16),transparent 62%),
+    radial-gradient(70% 50% at 85% 10%,rgba(240,178,60,.18),transparent 70%),
+    radial-gradient(120% 90% at 50% -10%,#ff5470 0%,var(--red) 32%,var(--red-deep) 68%,#180509 100%);
+  align-items:center;justify-content:center;color:#fff;gap:0;position:relative;overflow:hidden
+}
+#page-member #splash::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1px);background-size:28px 28px;opacity:.55;pointer-events:none}
+
+/* อนุภาคลอยขึ้นเบาๆ เป็นพื้นหลัง (ไม่ใช่โลโก้ ไม่หมุน แค่ลอยขึ้นช้าๆ วนซ้ำ) */
+#page-member .splash-fx{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+#page-member .splash-dot{position:absolute;bottom:-5%;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.95),rgba(255,255,255,.15) 60%,transparent 75%);opacity:0;animation:splashFloat ease-in-out infinite}
+#page-member .splash-dot.d1{width:10px;height:10px;left:16%;animation-delay:.2s;animation-duration:8s}
+#page-member .splash-dot.d2{width:6px;height:6px;left:78%;animation-delay:1.8s;animation-duration:6.5s}
+#page-member .splash-dot.d3{width:14px;height:14px;left:60%;animation-delay:3.2s;animation-duration:9s}
+#page-member .splash-dot.d4{width:8px;height:8px;left:32%;animation-delay:.9s;animation-duration:7.5s}
+#page-member .splash-dot.d5{width:5px;height:5px;left:48%;animation-delay:2.6s;animation-duration:6s}
+#page-member .splash-dot.d6{width:11px;height:11px;left:88%;animation-delay:4.1s;animation-duration:8.5s}
+
+#page-member .logo-halo{position:relative;z-index:1;width:168px;height:168px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;animation:logoIn .7s var(--ease) both}
 #page-member .logo-halo::before{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.35),rgba(255,255,255,0) 70%);animation:haloPulse 2.6s ease-in-out infinite}
-#page-member .logo-halo img{position:relative;width:148px;height:148px;border-radius:50%;box-shadow:0 0 0 6px rgba(255,255,255,.14),0 20px 46px rgba(0,0,0,.45);object-fit:cover}
-#page-member #splash h1{font-family:'Kanit',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px;animation:fadeIn .6s .15s var(--ease) both}
-#page-member #splash p{font-size:14px;opacity:0.72;letter-spacing:.5px;animation:fadeIn .6s .25s var(--ease) both}
+#page-member .logo-ring{position:relative;width:148px;height:148px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 6px rgba(255,255,255,.14),0 20px 46px rgba(0,0,0,.45)}
+#page-member .logo-ring img{width:100%;height:100%;object-fit:cover;display:block}
+#page-member .logo-ring::after{content:'';position:absolute;top:-30%;left:-60%;width:55%;height:160%;background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,.6) 50%,transparent 100%);transform:skewX(-18deg);animation:shimmerSweep 2.2s .85s ease-out 1}
+
+#page-member .splash-badge{position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;background:rgba(255,255,255,.12);border:1px solid rgba(240,178,60,.55);color:#ffe9b8;font-size:10.5px;font-weight:700;letter-spacing:.7px;margin-bottom:10px;backdrop-filter:blur(4px);animation:fadeIn .6s .3s var(--ease) both}
+#page-member #splash h1{position:relative;z-index:1;font-family:'Kanit',sans-serif;font-size:30px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px;animation:fadeIn .6s .42s var(--ease) both}
+#page-member #splash p{position:relative;z-index:1;font-size:14px;opacity:0.72;letter-spacing:.5px;animation:fadeIn .6s .54s var(--ease) both}
+#page-member .splash-loading{position:relative;z-index:1;display:flex;gap:6px;margin-top:30px;animation:fadeIn .5s .68s var(--ease) both}
+#page-member .splash-loading span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.6);animation:splashDot 1.2s ease-in-out infinite}
+#page-member .splash-loading span:nth-child(2){animation-delay:.15s}
+#page-member .splash-loading span:nth-child(3){animation-delay:.3s}
 
 /* Topbar (แบบสมาชิก — โลโก้ + หัวข้อ ไม่มี sticky) */
 #page-member .topbar{background:linear-gradient(120deg,var(--red) 0%,var(--red-dark) 62%,var(--red-deep) 100%);padding:20px 18px 17px;color:#fff;flex-shrink:0;box-shadow:0 6px 22px var(--red-glow);position:relative}

@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body id="page-member">
 <div class="app">
@@ -25,9 +25,19 @@
 
 <!-- SPLASH -->
 <div class="screen active" id="splash">
-  <div class="logo-halo"><img src="logo.png" alt="PGO Saraburi"></div>
+  <div class="splash-fx" aria-hidden="true">
+    <span class="splash-dot d1"></span>
+    <span class="splash-dot d2"></span>
+    <span class="splash-dot d3"></span>
+    <span class="splash-dot d4"></span>
+    <span class="splash-dot d5"></span>
+    <span class="splash-dot d6"></span>
+  </div>
+  <div class="logo-halo"><div class="logo-ring"><img src="logo.png" alt="PGO Saraburi"></div></div>
+  <span class="splash-badge">ชุมชนเทรนเนอร์สระบุรี</span>
   <h1>PGO Saraburi</h1>
   <p>ระบบจัดการกิจกรรม</p>
+  <div class="splash-loading"><span></span><span></span><span></span></div>
 </div>
 
 <!-- REGISTER -->
