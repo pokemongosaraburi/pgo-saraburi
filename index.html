@@ -372,7 +372,7 @@
       <div class="distance-info" id="succ-dist"></div>
     </div>
     <div style="font-size:13px;color:#6b7280;margin:12px 0" id="succ-actname"></div>
-    <button class="btn btn-primary" onclick="goScreen('home')">🏠 กลับหน้าหลัก</button>
+    <button class="btn btn-primary" onclick="clearTimeout(_successAutoTimer); renderHome(); goScreen('home')">🏠 กลับหน้าหลัก</button>
   </div>
 </div>
 
@@ -674,7 +674,7 @@ let selectedTeam = '';
 let activeActivity = null;
 let gpsResult = null;
 let currentMember = null;
-let _qrCountInterval = null, _qrPollInterval = null;
+let _qrCountInterval = null, _qrPollInterval = null, _successAutoTimer = null;
 
 // ===== Navigation =====
 function goScreen(id) {
@@ -1644,6 +1644,19 @@ async function _showCheckinSuccess(member) {
     : '✓ แอดมินสแกน QR ยืนยันแล้ว · ระยะ '+(gpsResult?.dist||0).toLocaleString()+' เมตร');
   document.getElementById('succ-actname').textContent = '📍 '+(activeActivity?.name||'');
   goScreen('success');
+
+  // เด้งกลับหน้าหลักอัตโนมัติหลัง 4 วินาที พร้อมแต้ม/สถิติล่าสุด (renderHome()
+  // จะดึงข้อมูลใหม่จาก DB เองอีกรอบ) — ถ้าผู้ใช้กด "กลับหน้าหลัก" เองหรือ
+  // เปลี่ยนหน้าไปที่อื่นไปแล้วก่อนครบเวลา จะเช็คก่อนว่ายังอยู่หน้า success
+  // อยู่ไหม ถ้าออกไปแล้วจะไม่ทำอะไรซ้ำ (กันดีดผู้ใช้กลับมาหน้าหลักโดยไม่ตั้งใจ)
+  clearTimeout(_successAutoTimer);
+  _successAutoTimer = setTimeout(() => {
+    const successScreen = document.getElementById('success');
+    if (successScreen && successScreen.classList.contains('active')) {
+      renderHome();
+      goScreen('home');
+    }
+  }, 4000);
 }
 
 function changeDevice() {

@@ -344,7 +344,7 @@
 
   <!-- SCAN QR -->
   <div class="tab-panel" id="panel-scan">
-    <div class="card">
+    <div class="card" id="scan-card" style="scroll-margin-top:110px">
       <h2>📷 สแกน QR เช็คอิน</h2>
       <div class="info-box" id="scan-info-msg">กด "เปิดกล้อง" แล้วให้สมาชิกแสดง QR Code ที่หน้าจอมือถือ</div>
       <div id="qr-video-wrap" style="display:none">
@@ -729,6 +729,8 @@ async function startQRScanner() {
   wrap.style.display    = 'block';
   toggleBtn.textContent = '⏹ หยุดกล้อง';
   toggleBtn.className   = 'btn btn-danger';
+  // เลื่อนการ์ดสแกนขึ้นมาบนสุดของจออัตโนมัติ กันปัญหากล้องอยู่ต่ำต้องเลื่อนเอง
+  $('scan-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   video.onloadedmetadata = async () => {
     try { await video.play(); } catch(e) {}
@@ -841,11 +843,20 @@ async function processScanToken(token) {
     resultEl.textContent = '❌ ' + e.message;
   }
 
-  // Resume scan หลัง 3 วินาที
+  // Resume scan หลัง 3 วินาที — เคลียร์การ์ดผลลัพธ์เดิมกลับเป็นสถานะ "พร้อมสแกน
+  // คนถัดไป" ด้วย ไม่งั้นการ์ดผลลัพธ์ล่าสุด (เช่น "เช็คอินสำเร็จ! ชื่อคนก่อนหน้า")
+  // จะค้างอยู่ตลอดไป ทำให้ดูเหมือนกล้องค้าง/หยุดทำงาน ทั้งที่จริงๆ กำลังสแกน
+  // หาคนถัดไปอยู่เบื้องหลัง
   setTimeout(() => {
     _scanCooldown     = false;
     _lastScannedToken = '';
-    if (_scanStream) _scanRaf = requestAnimationFrame(scanLoop);
+    if (_scanStream) {
+      _scanRaf = requestAnimationFrame(scanLoop);
+      resultEl.style.display = 'none';
+      resultEl.innerHTML = '';
+      $('scan-info-msg').className = 'info-box';
+      $('scan-info-msg').textContent = '📷 พร้อมสแกนคนถัดไป — ให้สมาชิกแสดง QR';
+    }
   }, 3000);
 }
 
