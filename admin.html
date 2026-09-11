@@ -116,7 +116,7 @@
         <button class="btn btn-secondary btn-sm" onclick="exportCSV()">📥 Export CSV</button>
       </div>
       <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>#</th><th>ชื่อ</th><th>Trainer Name</th><th>ทีม</th><th>Badge</th><th>กิจกรรม</th><th>แต้ม</th><th>ลงทะเบียน</th></tr></thead>
+        <thead><tr><th>#</th><th>ชื่อ</th><th>Username</th><th>ทีม</th><th>Badge</th><th>กิจกรรม</th><th>แต้ม</th><th>ลงทะเบียน</th></tr></thead>
         <tbody id="members-list"><tr><td colspan="7" class="empty">กำลังโหลด...</td></tr></tbody>
       </table></div>
     </div>
@@ -1894,11 +1894,20 @@ async function loadMemberDetail(id) {
     const av = member.team === 'mystic' ? 'av-mystic' : member.team === 'valor' ? 'av-valor' : 'av-instinct';
     const teamBadge = `<span class="badge ${TEAM_B[member.team]||''}">${TEAM_LABEL[member.team]||''}</span>`;
     const achBadge = badge ? `<span class="ach-tag ach-${badge.cls}">${badge.icon} ${badge.label}</span>` : '';
-    document.getElementById('mp-av').className = `mp-av ${av}`;
-    document.getElementById('mp-av').textContent = (member.name||'?').charAt(0).toUpperCase();
-    document.getElementById('mp-name').textContent = member.name || '';
-    document.getElementById('mp-gid').textContent = member.gameid || '';
-    document.getElementById('mp-badges').innerHTML = teamBadge + achBadge;
+    const lvBadge = member.trainer_level ? `<span class="badge badge-gold">Lv.${esc(String(member.trainer_level))}</span>` : '';
+    const avImgEl = document.getElementById('mp-av-img');
+    const avInitEl = document.getElementById('mp-av');
+    if (member.avatar_url) {
+      avImgEl.src = member.avatar_url; avImgEl.style.display = 'block';
+      avInitEl.style.display = 'none';
+    } else {
+      avImgEl.style.display = 'none'; avInitEl.style.display = 'flex';
+      avInitEl.className = `mp-av ${av}`;
+      avInitEl.textContent = (member.trainer_name || member.name || '?').charAt(0).toUpperCase();
+    }
+    document.getElementById('mp-name').textContent = member.trainer_name || member.name || '';
+    document.getElementById('mp-gid').textContent = 'Username: ' + (member.gameid || '-');
+    document.getElementById('mp-badges').innerHTML = lvBadge + teamBadge + achBadge;
 
     // Render body
     const ciList = (checkins || []).length === 0
@@ -1938,6 +1947,9 @@ async function loadMemberDetail(id) {
     const pinInfo = member.pin_hash
       ? `<span style="color:#15803d;font-weight:700">✅ ตั้งแล้ว</span>`
       : `<span style="color:#dc2626;font-weight:700">⚠️ ยังไม่ได้ตั้ง</span>`;
+    const termsDate = member.terms_accepted_at
+      ? new Date(member.terms_accepted_at).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : '-';
 
     body.innerHTML = `
       <div class="mp-stats">
@@ -1948,10 +1960,16 @@ async function loadMemberDetail(id) {
       <div class="mp-section">
         <h3>ข้อมูล</h3>
         <div style="font-size:13px;color:var(--text);display:grid;grid-template-columns:auto 1fr;gap:7px 12px">
+          <span style="color:var(--muted)">ชื่อ / ชื่อเล่น</span><span>${esc(member.name||'-')}</span>
+          <span style="color:var(--muted)">Trainer ID (ในเกม)</span><span>${esc(member.trainer_name||'-')}</span>
+          <span style="color:var(--muted)">เลเวล Trainer</span><span>${member.trainer_level ? 'Lv.'+esc(String(member.trainer_level)) : '-'}</span>
+          <span style="color:var(--muted)">Username เข้าสู่ระบบ</span><span>${esc(member.gameid||'-')}</span>
           <span style="color:var(--muted)">ลงทะเบียนเมื่อ</span><span>${joinDate}</span>
           <span style="color:var(--muted)">อัปเดตล่าสุด</span><span>${updatedDate}</span>
           <span style="color:var(--muted)">อีเมล (Google)</span><span style="word-break:break-all">${esc(email)}</span>
           <span style="color:var(--muted)">PIN เข้าสู่ระบบ</span><span>${pinInfo}</span>
+          <span style="color:var(--muted)">ยอมรับข้อกำหนดเมื่อ</span><span>${termsDate}</span>
+          <span style="color:var(--muted)">รหัสอุปกรณ์ (fp)</span><span style="word-break:break-all;font-size:11px;color:var(--muted-2)">${esc(member.fp||'-')}</span>
         </div>
       </div>
       <div class="mp-section">
@@ -2099,6 +2117,7 @@ document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!$('screen-login').
 <div class="mp-panel" id="mp-panel">
   <div class="mp-head">
     <div class="mp-av" id="mp-av">?</div>
+    <img class="mp-av" id="mp-av-img" style="display:none;object-fit:cover" alt="รูปโปรไฟล์">
     <div class="mp-info">
       <div class="mp-name" id="mp-name">—</div>
       <div class="mp-gid" id="mp-gid">—</div>
