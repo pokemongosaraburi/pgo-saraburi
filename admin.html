@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body id="page-admin">
 
@@ -473,6 +473,20 @@ function show(id)    { $(id).classList.remove('hidden'); }
 function hide(id)    { $(id).classList.add('hidden'); }
 function showErr(id, msg){ $(id).textContent=msg; show(id); }
 function hideErr(id) { hide(id); }
+
+// Toast แจ้งเตือนลอยมุมบน แทน alert() เดิม (ไม่บล็อกหน้าจอ) — ใช้กับข้อความ
+// แจ้งสถานะทั่วไปเท่านั้น ส่วนข้อความที่โชว์ PIN ใหม่ (ต้องให้แอดมินจด/แจ้งสมาชิก)
+// ยังคงใช้ alert() ปกติที่บล็อกหน้าจอไว้ตามเดิมโดยตั้งใจ
+function showToast(message, type = 'info', duration = 3200) {
+  let box = $('toast-container');
+  if (!box) { box = document.createElement('div'); box.id = 'toast-container'; document.body.appendChild(box); }
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const el = document.createElement('div');
+  el.className = 'toast' + (type !== 'info' ? ' toast-' + type : '');
+  el.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${message}</span>`;
+  box.appendChild(el);
+  setTimeout(() => { el.classList.add('toast-out'); setTimeout(() => el.remove(), 250); }, duration);
+}
 function fmt(d)      { if(!d)return'-'; return new Date(d).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
 
 // ป้องกัน XSS: ใช้ครอบข้อมูลที่มาจาก DB/ผู้ใช้ก่อนใส่ผ่าน innerHTML เสมอ
@@ -555,14 +569,6 @@ function startRealtime() {
       const dot = $('rt-dot');
       if (dot) dot.style.background = status === 'SUBSCRIBED' ? '#22c55e' : '#f59e0b';
     });
-}
-
-function showToast(msg) {
-  let t = document.createElement('div');
-  t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#111;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999;max-width:320px;box-shadow:0 4px 12px rgba(0,0,0,0.3);animation:fadeIn 0.2s';
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 4000);
 }
 
 async function doLogout() {
@@ -808,9 +814,9 @@ function mcSelectMember(id, name, gameid) {
 }
 
 async function doManualCheckin() {
-  if (!_mcSelectedId) { alert('กรุณาเลือกสมาชิกก่อน'); return; }
+  if (!_mcSelectedId) { showToast('กรุณาเลือกสมาชิกก่อน', 'error'); return; }
   const actId = document.getElementById('mc-activity').value;
-  if (!actId) { alert('กรุณาเลือกกิจกรรม'); return; }
+  if (!actId) { showToast('กรุณาเลือกกิจกรรม', 'error'); return; }
   const btn = document.getElementById('mc-btn');
   const res = document.getElementById('mc-result');
   btn.disabled = true; btn.textContent = '⏳ กำลังเช็คอิน...';
@@ -1020,22 +1026,22 @@ async function createActivity() {
         // EDIT MODE
         const {error}=await db.from('activities').update({name,type,checkin_mode,lat,lng,radius,pts_per_checkin:pts,start_time:start,end_time:end,image_url}).eq('id',_editingId);
         if (error) throw error;
-        alert('✅ บันทึกการแก้ไขสำเร็จ');
+        showToast('บันทึกการแก้ไขสำเร็จ', 'success');
       } else {
         // CREATE MODE
         const {error}=await db.from('activities').insert({name,type,checkin_mode,lat,lng,radius,pts_per_checkin:pts,start_time:start,end_time:end,is_open:true,image_url});
         if (error) throw error;
-        alert('✅ สร้างกิจกรรมสำเร็จ');
+        showToast('สร้างกิจกรรมสำเร็จ', 'success');
       }
     } else {
       const acts=JSON.parse(localStorage.getItem('pgo_activities')||'[]');
       if (_editingId) {
         const a=acts.find(x=>x.id===_editingId);
         if(a){Object.assign(a,{name,type,checkin_mode,lat,lng,radius,ptsPerCheckin:pts,startTime:start,endTime:end});}
-        alert('✅ บันทึกการแก้ไขสำเร็จ');
+        showToast('บันทึกการแก้ไขสำเร็จ', 'success');
       } else {
         acts.unshift({id:'act_'+Date.now(),name,type,checkin_mode,lat,lng,radius,ptsPerCheckin:pts,startTime:start,endTime:end,isOpen:true,created_at:new Date().toISOString()});
-        alert('✅ สร้างกิจกรรมสำเร็จ');
+        showToast('สร้างกิจกรรมสำเร็จ', 'success');
       }
       localStorage.setItem('pgo_activities',JSON.stringify(acts));
     }
@@ -1055,7 +1061,7 @@ async function toggleActivity(id, isOpen) {
       localStorage.setItem('pgo_activities',JSON.stringify(acts));
     }
     loadActivities();
-  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+  } catch(e) { showToast('เกิดข้อผิดพลาด: '+e.message, 'error'); }
 }
 
 async function deleteActivity(id) {
@@ -1069,12 +1075,12 @@ async function deleteActivity(id) {
       localStorage.setItem('pgo_activities',JSON.stringify(acts.filter(a=>a.id!==id)));
     }
     loadActivities(); loadActivitiesForDraw();
-  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+  } catch(e) { showToast('เกิดข้อผิดพลาด: '+e.message, 'error'); }
 }
 
 function copyCheckinLink(id) {
   const url=location.origin+'/index.html?activity='+id;
-  navigator.clipboard.writeText(url).then(()=>alert('✅ คัดลอกลิงก์แล้ว:\n'+url)).catch(()=>prompt('คัดลอกลิงก์:',url));
+  navigator.clipboard.writeText(url).then(()=>showToast('คัดลอกลิงก์แล้ว: '+url, 'success')).catch(()=>prompt('คัดลอกลิงก์:',url));
 }
 
 // ==================== Time helpers ====================
@@ -1233,7 +1239,7 @@ async function createAnnouncement() {
       created_by: currentUser?.email || null
     });
     if (error) throw error;
-    alert('✅ เผยแพร่ประกาศเรียบร้อย สมาชิกจะเห็น pop-up หลังล็อกอินครั้งถัดไป');
+    showToast('เผยแพร่ประกาศเรียบร้อย สมาชิกจะเห็น pop-up หลังล็อกอินครั้งถัดไป', 'success');
     $('ann-title').value=''; $('ann-message').value=''; clearAnnounceImage();
     loadAnnouncements();
   } catch(e) { showErr('ann-err', e.message); }
@@ -1287,7 +1293,7 @@ async function toggleAnnouncementActive(id, isActive) {
     if (!isActive) await db.from('announcements').update({ is_active:false }).eq('is_active', true);
     await db.from('announcements').update({ is_active: !isActive }).eq('id', id);
     loadAnnouncements();
-  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+  } catch(e) { showToast('เกิดข้อผิดพลาด: '+e.message, 'error'); }
 }
 
 async function deleteAnnouncementRow(id) {
@@ -1296,15 +1302,15 @@ async function deleteAnnouncementRow(id) {
   try {
     await db.from('announcements').delete().eq('id', id);
     loadAnnouncements();
-  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+  } catch(e) { showToast('เกิดข้อผิดพลาด: '+e.message, 'error'); }
 }
 
 function useMyGPS() {
-  if (!navigator.geolocation) { alert('เบราว์เซอร์ไม่รองรับ GPS'); return; }
+  if (!navigator.geolocation) { showToast('เบราว์เซอร์ไม่รองรับ GPS', 'error'); return; }
   navigator.geolocation.getCurrentPosition(p=>{
     $('act-lat').value=p.coords.latitude.toFixed(6);
     $('act-lng').value=p.coords.longitude.toFixed(6);
-  },e=>alert('รับ GPS ไม่ได้: '+e.message),{enableHighAccuracy:true,timeout:10000});
+  },e=>showToast('รับ GPS ไม่ได้: '+e.message, 'error'),{enableHighAccuracy:true,timeout:10000});
 }
 
 // ==================== Draw ====================
@@ -1487,12 +1493,12 @@ async function markDelivered(id) {
     }
     await loadDrawCandidates();
     loadDrawHistory();
-  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+  } catch(e) { showToast('เกิดข้อผิดพลาด: '+e.message, 'error'); }
 }
 
 async function resetDraw() {
   const actId=$('draw-act').value;
-  if (!actId) { alert('กรุณาเลือกกิจกรรมก่อน'); return; }
+  if (!actId) { showToast('กรุณาเลือกกิจกรรมก่อน', 'error'); return; }
   const ok2 = await showConfirm({ icon:'⚠️', title:'ลบผู้ชนะและสุ่มใหม่?', message:'รายชื่อผู้ชนะเดิมทั้งหมดจะถูกลบ และเริ่มสุ่มใหม่', okText:'ยืนยัน สุ่มใหม่' });
   if (!ok2) return;
   try {
@@ -1504,11 +1510,11 @@ async function resetDraw() {
     }
     $('draw-slot').textContent='———'; $('draw-winner-area').innerHTML='';
     await loadDrawCandidates(); loadDrawHistory();
-  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+  } catch(e) { showToast('เกิดข้อผิดพลาด: '+e.message, 'error'); }
 }
 
 function exportWinnersCSV() {
-  if (!drawWinners.length) { alert('ไม่มีรายชื่อผู้ชนะ'); return; }
+  if (!drawWinners.length) { showToast('ไม่มีรายชื่อผู้ชนะ', 'error'); return; }
   const actName=$('draw-act').options[$('draw-act').selectedIndex]?.text||'กิจกรรม';
   const rows=[['อันดับ','รางวัล','ชื่อ','Trainer Name','ทีม','เวลาสุ่ม','ส่งรางวัลแล้ว']];
   drawWinners.forEach((w,i)=>rows.push([w.prize_rank||i+1,w.prize_name||'-',w.member_name,w.member_gameid||'',TEAM_LABEL[w.member_team]||w.member_team||'',fmt(w.drawn_at),w.prize_delivered?'✓':'']));
@@ -1552,8 +1558,8 @@ async function loadDrawHistory() {
 
 async function doDraw() {
   const prizeRows=getPrizeList();
-  if (!prizeRows.length) { alert('กรุณาเพิ่มรายการรางวัลก่อน'); return; }
-  if (!drawCandidates.length) { alert('ไม่มีผู้มีสิทธิ์สุ่ม'); return; }
+  if (!prizeRows.length) { showToast('กรุณาเพิ่มรายการรางวัลก่อน', 'error'); return; }
+  if (!drawCandidates.length) { showToast('ไม่มีผู้มีสิทธิ์สุ่ม', 'error'); return; }
   // Build flat prize list: [{name, slot:{code,link,img}}]
   const prizes=[];
   prizeRows.forEach(row=>{ for(let i=0;i<row.qty;i++) prizes.push({name:row.name, slot:row.slots[i]||{}}); });
@@ -1659,7 +1665,7 @@ async function removeTeamMember(id) {
       : (e.message||'').includes('FORBIDDEN') ? 'เฉพาะ Superadmin เท่านั้นที่ลบทีมงานได้'
       : (e.message||'').includes('NOT_FOUND') ? 'ไม่พบทีมงานนี้'
       : e.message||'ลบทีมงานไม่สำเร็จ';
-    alert('เกิดข้อผิดพลาด: '+msg);
+    showToast('เกิดข้อผิดพลาด: '+msg, 'error');
   }
 }
 
@@ -1692,7 +1698,7 @@ async function saveSplashImage() {
       if (error) throw error;
     }
     updateSplashPreview(url);
-    alert('บันทึกแล้ว ✅');
+    showToast('บันทึกแล้ว', 'success');
   } catch(e) { showErr('splash-err', e.message); }
 }
 
@@ -1839,10 +1845,10 @@ async function loadPinResets() {
 
 async function adminSetNewPin(memberId, gameid, reqId) {
   const newPin = prompt(`ตั้ง PIN ใหม่ให้ ${gameid}\n(ตัวเลข 6 หลัก):`);
-  if (!newPin || !/^\d{6}$/.test(newPin)) { alert('PIN ต้องเป็นตัวเลข 6 หลัก'); return; }
+  if (!newPin || !/^\d{6}$/.test(newPin)) { showToast('PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return; }
   const hash = await sha256(newPin);
   const { data, error } = await db.rpc('admin_reset_pin', { p_member_id: memberId, p_new_pin_hash: hash });
-  if (error) { alert('เกิดข้อผิดพลาด: ' + error.message); return; }
+  if (error) { showToast('เกิดข้อผิดพลาด: ' + error.message, 'error'); return; }
   alert(`✅ Reset PIN ของ ${gameid} เรียบร้อยแล้ว\nแจ้ง PIN ใหม่ให้สมาชิก: ${newPin}`);
   loadPinResets();
 }
@@ -2044,7 +2050,7 @@ async function mpUnsuspend(memberId) {
 async function mpResetPin(memberId) {
   const newPin = prompt('ป้อน PIN ใหม่ 6 หลัก สำหรับสมาชิกนี้:');
   if (!newPin || newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
-    alert('PIN ต้องเป็นตัวเลข 6 หลัก'); return;
+    showToast('PIN ต้องเป็นตัวเลข 6 หลัก', 'error'); return;
   }
   const hash = await sha256(newPin);
   const { data, error } = await db.rpc('admin_reset_pin', { p_member_id: memberId, p_new_pin_hash: hash });
@@ -2062,7 +2068,7 @@ async function mpDeleteMember(memberId, name) {
   });
   if (!ok) return;
   const { data, error } = await db.rpc('admin_delete_member', { p_member_id: memberId });
-  if (error || !data?.ok) { alert('ลบไม่ได้: ' + (error?.message || data?.message || 'เกิดข้อผิดพลาด')); return; }
+  if (error || !data?.ok) { showToast('ลบไม่ได้: ' + (error?.message || data?.message || 'เกิดข้อผิดพลาด'), 'error'); return; }
   closeMemberPanel();
   loadMembers();
 }

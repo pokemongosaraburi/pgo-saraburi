@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body id="page-member">
 <div class="app">
@@ -483,6 +483,21 @@ function showLoader(text) {
 }
 function hideLoader() { document.getElementById('global-loader').classList.add('hidden'); }
 
+// Toast แจ้งเตือนลอยมุมบน แทน alert() เดิม (ไม่บล็อกหน้าจอ) — ใช้กับข้อความ
+// แจ้งสถานะทั่วไปเท่านั้น ส่วนข้อความสำคัญที่ต้องให้ผู้ใช้อ่าน/จดก่อนดำเนินการ
+// ต่อ (เช่น โชว์ PIN ใหม่, เตือนก่อนออกจากระบบอัตโนมัติ) ยังคงใช้ alert() ปกติ
+// ที่บล็อกหน้าจอไว้ตามเดิมโดยตั้งใจ
+function showToast(message, type = 'info', duration = 3200) {
+  let box = document.getElementById('toast-container');
+  if (!box) { box = document.createElement('div'); box.id = 'toast-container'; document.body.appendChild(box); }
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const el = document.createElement('div');
+  el.className = 'toast' + (type !== 'info' ? ' toast-' + type : '');
+  el.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span>${message}</span>`;
+  box.appendChild(el);
+  setTimeout(() => { el.classList.add('toast-out'); setTimeout(() => el.remove(), 250); }, duration);
+}
+
 function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
 
 // ===== Push Notification =====
@@ -538,7 +553,7 @@ function dismissPushBanner() {
 
 async function enablePushNotification() {
   const banner = document.getElementById('push-banner');
-  if (!pushSupported()) { alert('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน'); dismissPushBanner(); return; }
+  if (!pushSupported()) { showToast('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน', 'error'); dismissPushBanner(); return; }
   try {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
@@ -1031,7 +1046,7 @@ function checkSuspended(member) {
 
 // ===== Gmail OAuth =====
 async function signInWithGoogle(intent) {
-  if (!IS_CONFIGURED || !db) { alert('ระบบยังไม่ได้ตั้งค่า Supabase'); return; }
+  if (!IS_CONFIGURED || !db) { showToast('ระบบยังไม่ได้ตั้งค่า Supabase', 'error'); return; }
   localStorage.setItem('oauth_intent', intent);
   // เก็บ member_id ไว้ถ้าเป็น intent 'link'
   if (intent === 'link' && currentMember) {
@@ -1100,7 +1115,7 @@ async function handleGoogleCallback() {
       await renderHome();
       goScreen('home');
     } else {
-      alert(data?.message || 'เชื่อม Gmail ไม่สำเร็จ');
+      showToast(data?.message || 'เชื่อม Gmail ไม่สำเร็จ', 'error');
       goScreen('home');
     }
     return true;
@@ -1121,7 +1136,7 @@ async function handleGoogleCallback() {
       alert(`✅ รีเซ็ต PIN เรียบร้อย!\nPIN ใหม่ของคุณ: ${newPin}`);
       goScreen('login');
     } else {
-      alert(data?.message || 'Gmail นี้ไม่ได้ผูกกับบัญชีใดในระบบ');
+      showToast(data?.message || 'Gmail นี้ไม่ได้ผูกกับบัญชีใดในระบบ', 'error');
       goScreen('forgot-pin');
     }
     return true;
@@ -1182,8 +1197,8 @@ async function renderHome() {
   const tb = document.getElementById('home-team-badge');
   tb.textContent = TEAM_LABEL[member.team]||'';
   tb.className = 'badge ' + (TEAM_BADGE[member.team]||'badge-blue');
-  document.getElementById('home-events').textContent = member.events||0;
-  document.getElementById('home-pts').textContent = member.points||0;
+  animateCounter(document.getElementById('home-events'), member.events||0);
+  animateCounter(document.getElementById('home-pts'), member.points||0);
   document.getElementById('home-rank').textContent = member._rank ? '#'+member._rank : '#-';
   renderAchBadge(document.getElementById('home-ach-badge'), member.events||0);
 
@@ -1772,6 +1787,23 @@ const BADGES = [
 
 function getBadge(events) {
   return BADGES.find(b => (events||0) >= b.min) || null;
+}
+
+// ตัวเลขนับไต่ขึ้น (เหมือนมาตรวัด/odometer) ใช้ requestAnimationFrame ล้วนๆ
+// ไม่พึ่ง library ภายนอก — เอาไว้ใช้กับสถิติหน้าแรก (แต้มสะสม/จำนวนกิจกรรม)
+function animateCounter(el, end, duration = 700) {
+  if (!el) return;
+  end = Number(end) || 0;
+  const start = 0;
+  const t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / duration, 1);
+    const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    el.textContent = Math.round(start + (end - start) * eased).toLocaleString();
+    if (p < 1) requestAnimationFrame(tick);
+    else el.textContent = end.toLocaleString();
+  }
+  requestAnimationFrame(tick);
 }
 
 function renderAchBadge(el, events) {

@@ -46,12 +46,23 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 @keyframes haloPulse{0%,100%{transform:scale(.92);opacity:.55}50%{transform:scale(1.08);opacity:1}}
 @keyframes logoIn{from{opacity:0;transform:scale(.8) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @keyframes scanline{0%{top:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+@keyframes radarSweep{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 @keyframes shimmerSweep{0%{left:-60%}100%{left:140%}}
 @keyframes splashFloat{0%{transform:translateY(0) scale(.6);opacity:0}12%{opacity:.9}85%{opacity:.35}100%{transform:translateY(-620px) scale(1);opacity:0}}
 @keyframes splashDot{0%,80%,100%{transform:scale(.6);opacity:.35}40%{transform:scale(1);opacity:1}}
 
 /* ═══ 3) SHARED COMPONENTS ═══ */
 .sec-label{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px}
+
+/* Toast (แจ้งเตือนลอยมุมบน แทน alert() เดิม — ไม่บล็อกหน้าจอ, ดูทันสมัยกว่า) */
+#toast-container{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:100%;max-width:420px;padding:0 16px;box-sizing:border-box}
+.toast{pointer-events:auto;width:100%;background:#26202b;color:#fff;padding:13px 16px;border-radius:13px;font-size:13.5px;font-weight:600;line-height:1.5;box-shadow:0 16px 36px -8px rgba(0,0,0,.35);display:flex;align-items:flex-start;gap:9px;animation:toastIn .3s var(--ease) both;word-break:break-word}
+.toast.toast-out{animation:toastOut .22s var(--ease) forwards}
+.toast-success{background:linear-gradient(135deg,#16a34a,#15803d)}
+.toast-error{background:linear-gradient(135deg,#ef4444,#dc2626)}
+.toast-icon{flex-shrink:0;font-size:15px;line-height:1.4}
+@keyframes toastIn{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-10px) scale(.96)}}
 
 /* Forms (ขนาดพื้นฐานร่วมกัน — ปรับความหนาแน่นเฉพาะแอปด้านล่าง) */
 .form-group{margin-bottom:15px}
@@ -124,6 +135,18 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 /* Loading overlay (global spinner ตอนรอ API) */
 #page-member .loading-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.94);backdrop-filter:blur(8px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:14px}
 #page-member .loading-overlay.hidden{display:none}
+
+/* Announcement popup (ประกาศ/นัดหมายหลังล็อกอิน) */
+#page-member .announce-overlay{position:absolute;inset:0;background:rgba(15,8,15,.55);backdrop-filter:blur(2px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+#page-member .announce-overlay.hidden{display:none}
+#page-member .announce-card{background:#fff;border-radius:var(--radius-xl);max-width:340px;width:100%;max-height:86%;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.4);animation:popIn .3s var(--ease)}
+#page-member .announce-card img{width:100%;display:block;max-height:220px;object-fit:cover;border-radius:var(--radius-xl) var(--radius-xl) 0 0}
+#page-member .announce-body{padding:20px 18px 6px}
+#page-member .announce-body h3{font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px}
+#page-member .announce-body p{font-size:13.5px;color:var(--text);line-height:1.7;white-space:pre-wrap}
+#page-member .announce-checkbox{display:flex;align-items:center;gap:8px;padding:14px 18px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+#page-member .announce-checkbox input{width:16px;height:16px;flex-shrink:0;accent-color:var(--red)}
+#page-member .announce-card > .btn{margin:0 18px 18px;width:calc(100% - 36px)}
 #page-member .pokeball-spin{width:44px;height:44px;animation:spin .9s linear infinite;filter:drop-shadow(0 2px 8px rgba(232,39,75,0.3))}
 
 /* Splash — โลโก้เป็นภาพนิ่ง มี halo + shimmer เบาๆ แทนการหมุน, มีอนุภาคลอยเบาๆ ให้ดูมีชีวิตชีวาแบบพรีเมียม */
@@ -166,7 +189,9 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 #page-member .topbar p{font-size:12px;opacity:.78;font-weight:500}
 
 #page-member .content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px;padding-bottom:32px}
-#page-member .content--center{display:flex;flex-direction:column;justify-content:center}
+/* content--center ถูกลบออกโดยตั้งใจ (เคยทำให้เนื้อหาที่ล้นจอถูกดันพ้นขอบบน
+   เลื่อนขึ้นไปดูไม่ได้เลย เจอบั๊กจริงกับหน้าแก้ไขโปรไฟล์) ทุกหน้ายึดด้านบนเป็นหลัก
+   แล้วให้ overflow-y:auto จัดการเลื่อนดูส่วนที่ยาวเกินแทน */
 
 /* Team selector */
 #page-member .team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
@@ -195,11 +220,13 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 
 /* GPS check-in */
 #page-member .gps-wrap{display:flex;flex-direction:column;align-items:center;padding:28px 16px 20px}
-#page-member .gps-ring{width:120px;height:120px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;border:4px solid;transition:all .4s}
+#page-member .gps-ring{position:relative;width:120px;height:120px;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;border:4px solid;transition:all .4s;overflow:hidden}
 #page-member .gps-ring.checking{border-color:#93c5fd;background:linear-gradient(135deg,#eff6ff,#dbeafe);animation:glow 1.5s ease-in-out infinite}
+/* เรดาร์กวาดตอนกำลังหาสัญญาณ GPS — conic-gradient หมุนวนล้วน CSS ไม่ต้องพึ่ง JS/lib เพิ่ม */
+#page-member .gps-ring.checking::before{content:'';position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,rgba(59,130,246,0) 0deg,rgba(59,130,246,.5) 35deg,rgba(59,130,246,0) 80deg);animation:radarSweep 1.6s linear infinite}
 #page-member .gps-ring.ok{border-color:#4ade80;background:linear-gradient(135deg,#f0fdf4,#dcfce7);box-shadow:0 0 0 8px rgba(74,222,128,.15)}
 #page-member .gps-ring.fail{border-color:#f87171;background:linear-gradient(135deg,#fef2f2,#fee2e2)}
-#page-member .gps-icon{font-size:48px}
+#page-member .gps-icon{position:relative;z-index:1;font-size:48px}
 #page-member .gps-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;text-align:center}
 #page-member .gps-detail{font-size:13px;color:var(--muted);margin-bottom:18px;text-align:center;line-height:1.6}
 
