@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body id="page-admin">
 
@@ -1897,10 +1897,13 @@ async function loadPushLogs() {
     _pushLogsCache = data || [];
     if (!_pushLogsCache.length) { el.innerHTML = '<div class="empty">ยังไม่มีประวัติการส่ง</div>'; return; }
     el.innerHTML = _pushLogsCache.map(l => `
-      <div class="push-log-row" style="border:1px solid #f0f0f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="togglePushLogRecipients('${l.id}', this)">
+      <div class="push-log-row" id="push-log-${l.id}" style="border:1px solid #f0f0f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer" onclick="togglePushLogRecipients('${l.id}', this)">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
           <div style="font-weight:700;font-size:13px">${esc(l.title)}</div>
-          <div style="font-size:11px;color:#9ca3af">${fmt(l.sent_at)}</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <div style="font-size:11px;color:#9ca3af">${fmt(l.sent_at)}</div>
+            <button class="push-log-del-btn" title="ลบประวัตินี้" onclick="event.stopPropagation();deletePushLog('${l.id}')">🗑</button>
+          </div>
         </div>
         <div style="font-size:12px;color:#6b7280;margin-top:2px">${esc(l.body||'')}</div>
         <div style="font-size:11px;color:#9ca3af;margin-top:4px">
@@ -1910,6 +1913,24 @@ async function loadPushLogs() {
       </div>
     `).join('');
   } catch(e) { el.innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${esc(e.message)}</div>`; }
+}
+
+async function deletePushLog(logId) {
+  const ok = await showConfirm({
+    icon: '🗑', title: 'ลบประวัติการส่งนี้?',
+    message: 'ประวัติและรายชื่อผู้รับของการแจ้งเตือนครั้งนี้จะถูกลบถาวร ไม่สามารถกู้คืนได้',
+    okText: 'ลบถาวร', okColor: '#dc2626'
+  });
+  if (!ok) return;
+  try {
+    const { data, error } = await db.rpc('admin_delete_push_log', { p_log_id: logId });
+    if (error || !data?.ok) { showToast('ลบไม่ได้: ' + (error?.message || data?.message || 'เกิดข้อผิดพลาด'), 'error'); return; }
+    const rowEl = document.getElementById('push-log-' + logId);
+    if (rowEl) rowEl.remove();
+    _pushLogsCache = _pushLogsCache.filter(l => l.id !== logId);
+    if (!_pushLogsCache.length) { $('push-logs-list').innerHTML = '<div class="empty">ยังไม่มีประวัติการส่ง</div>'; }
+    showToast('ลบประวัติเรียบร้อย ✅', 'success');
+  } catch(e) { showToast('ลบไม่ได้: ' + e.message, 'error'); }
 }
 
 async function togglePushLogRecipients(logId, rowEl) {

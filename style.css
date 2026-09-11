@@ -279,6 +279,10 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 #page-member .lb-rank-num{font-size:14px;font-weight:900;color:#1a0a12}
 @keyframes podiumGlow{0%,100%{box-shadow:0 0 0 3px #1a0a12,0 0 0 5px var(--gold),0 0 20px 2px rgba(240,178,60,.5)}50%{box-shadow:0 0 0 3px #1a0a12,0 0 0 5px var(--gold),0 0 30px 6px rgba(240,178,60,.85)}}
 
+/* Admin — ปุ่มลบเล็กๆ ในแถวประวัติการส่งแจ้งเตือน */
+#page-admin .push-log-del-btn{flex-shrink:0;width:26px;height:26px;border:none;border-radius:8px;background:#f3f4f6;color:#9ca3af;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+#page-admin .push-log-del-btn:hover{background:#fee2e2;color:#dc2626}
+
 /* Leaderboard — "สถานะของคุณ" การ์ดเน้นข้อมูลสำคัญ */
 #page-member .lb-mystanding{display:flex;align-items:center;gap:11px;background:linear-gradient(120deg,#fff7ed,#fef2f2);border:1.5px solid #fde68a;border-radius:var(--radius-md);padding:13px 15px;margin-bottom:14px}
 #page-member .lb-my-icon{font-size:22px;flex-shrink:0}
