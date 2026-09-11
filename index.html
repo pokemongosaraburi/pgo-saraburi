@@ -149,7 +149,7 @@
           <span class="badge" id="home-team-badge"></span>
           <span id="home-ach-badge" style="display:none"></span>
         </div>
-        <button onclick="goScreen('register')" style="background:none;border:none;font-size:11px;color:#9ca3af;cursor:pointer">แก้ไข</button>
+        <button onclick="openEditProfile()" style="background:none;border:none;font-size:11px;color:#9ca3af;cursor:pointer">แก้ไข</button>
       </div>
       <div class="pts-row">
         <div class="pts-box"><div class="pts-num" id="home-events">0</div><div class="pts-label">กิจกรรม</div></div>
@@ -179,6 +179,31 @@
     <a href="#" onclick="loadLeaderboard();goScreen('leaderboard')" style="color:var(--red);text-decoration:none;font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">🏆</span>Leaderboard</a>
     <a href="#" onclick="loadHistory();goScreen('history')" style="color:var(--muted);text-decoration:none;font-weight:700;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">📋</span>ประวัติ</a>
     <a href="#" onclick="doLogout()" style="color:var(--muted);text-decoration:none;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px"><span style="font-size:18px">🚪</span>ออกจากระบบ</a>
+  </div>
+</div>
+
+<!-- EDIT PROFILE -->
+<div class="screen" id="edit-profile">
+  <div class="topbar">
+    <h1>✏️ แก้ไขข้อมูลส่วนตัว</h1>
+    <p>ชื่อ/ชื่อเล่น และสีทีม</p>
+  </div>
+  <div class="content content--center">
+    <div class="err-box" id="ep-err" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">ชื่อ / ชื่อเล่น</label>
+      <input class="form-input" id="ep-name" type="text" placeholder="เช่น สุรชัย หรือ บอส" maxlength="30" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">สีทีม</label>
+      <div class="team-grid" id="ep-team-grid">
+        <div class="team-opt mystic"   onclick="pickEditTeam('mystic',this)"><span class="t-icon">💙</span><span class="t-name">Mystic</span></div>
+        <div class="team-opt valor"    onclick="pickEditTeam('valor',this)"><span class="t-icon">❤️</span><span class="t-name">Valor</span></div>
+        <div class="team-opt instinct" onclick="pickEditTeam('instinct',this)"><span class="t-icon">💛</span><span class="t-name">Instinct</span></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="ep-save-btn" onclick="doUpdateProfile()">💾 บันทึกการแก้ไข</button>
+    <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
   </div>
 </div>
 
@@ -492,6 +517,61 @@ function pickTeam(team, el) {
   selectedTeam = team;
   document.querySelectorAll('.team-opt').forEach(t => t.classList.remove('selected'));
   el.classList.add('selected');
+}
+
+// ===== Edit Profile (ชื่อ/ชื่อเล่น + สีทีม เท่านั้น — ไม่แตะ Trainer Name/PIN) =====
+let editSelectedTeam = '';
+
+function pickEditTeam(team, el) {
+  editSelectedTeam = team;
+  document.querySelectorAll('#ep-team-grid .team-opt').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function openEditProfile() {
+  if (!currentMember) return;
+  document.getElementById('ep-name').value = currentMember.name || '';
+  editSelectedTeam = currentMember.team || '';
+  document.querySelectorAll('#ep-team-grid .team-opt').forEach(t => {
+    t.classList.toggle('selected', t.classList.contains(editSelectedTeam));
+  });
+  document.getElementById('ep-err').style.display = 'none';
+  goScreen('edit-profile');
+}
+
+async function doUpdateProfile() {
+  const name  = document.getElementById('ep-name').value.trim();
+  const errEl = document.getElementById('ep-err');
+  errEl.style.display = 'none';
+
+  if (!name) { errEl.textContent = 'กรุณากรอกชื่อ/ชื่อเล่น'; errEl.style.display = 'block'; return; }
+  if (!editSelectedTeam) { errEl.textContent = 'กรุณาเลือกสีทีม'; errEl.style.display = 'block'; return; }
+  if (!db || !currentMember) { errEl.textContent = 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('ep-save-btn');
+  btn.disabled = true;
+  showLoader('กำลังบันทึก...');
+  try {
+    const fp = currentMember.fp || getFingerprint();
+    const { data, error } = await db.rpc('update_member_profile', {
+      p_member_id: currentMember.id, p_fp: fp, p_name: name, p_team: editSelectedTeam
+    });
+    if (error) throw error;
+    if (!data?.ok) {
+      errEl.textContent = data?.message || 'บันทึกไม่สำเร็จ';
+      errEl.style.display = 'block';
+      return;
+    }
+    hideLoader();
+    await renderHome();
+    goScreen('home');
+  } catch(e) {
+    errEl.textContent = 'เกิดข้อผิดพลาด: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    hideLoader();
+    btn.disabled = false;
+  }
 }
 
 async function sha256(text) {
