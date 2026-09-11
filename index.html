@@ -18,7 +18,7 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body id="page-member">
 <div class="app">
@@ -446,6 +446,9 @@
     <p id="lb-sub">อันดับแต้มสะสม</p>
   </div>
   <div class="content">
+    <!-- Team race -->
+    <div class="lb-team-race" id="lb-team-race"></div>
+    <!-- Filter -->
     <div class="lb-filter">
       <div class="lb-ftab active" id="lbf-all"      onclick="lbFilter('all')">🌐 ทั้งหมด</div>
       <div class="lb-ftab"       id="lbf-mystic"    onclick="lbFilter('mystic')">💙 Mystic</div>
@@ -453,11 +456,14 @@
       <div class="lb-ftab"       id="lbf-instinct"  onclick="lbFilter('instinct')">💛 Instinct</div>
     </div>
     <!-- Podium top 3 -->
-    <div class="card" style="padding-bottom:0;overflow:hidden">
+    <div class="lb-podium-card" id="lb-podium-card">
       <div class="lb-podium" id="lb-podium"></div>
     </div>
+    <!-- My standing -->
+    <div class="lb-mystanding" id="lb-mystanding" style="display:none"></div>
     <!-- Full list -->
     <div class="card" style="padding:0;overflow:hidden" id="lb-list-card">
+      <div class="lb-list-head" id="lb-list-head"></div>
       <div id="lb-list"></div>
     </div>
     <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
@@ -1749,12 +1755,76 @@ function lbFilter(team) {
   renderLeaderboard();
 }
 
+// อวาตาร์ leaderboard — ใช้รูปจริงถ้ามี ไม่งั้นใช้ตัวอักษรย่อสีตามทีม
+function lbAvatarHtml(m, sizeClass) {
+  const av = TEAM_AV[m.team] || 'av-mystic';
+  const initials = esc((m.name||'').slice(0,2).toUpperCase());
+  if (m.avatar_url) {
+    return `<img src="${esc(m.avatar_url)}" alt="" class="${sizeClass} lb-av-img">`;
+  }
+  return `<div class="${sizeClass} ${av}">${initials}</div>`;
+}
+
+// แถบ "ศึกชิงทีม" — รวมแต้มทั้งหมดของแต่ละทีม โชว์ว่าทีมไหนนำอยู่ตอนนี้
+// (ใช้ _lbData ทั้งหมดเสมอ ไม่ขึ้นกับ filter ที่กำลังเลือกดูอยู่)
+const LB_TEAM_COLOR = { mystic:'#3b82f6', valor:'#ef4444', instinct:'#eab308' };
+function renderTeamRace() {
+  const el = document.getElementById('lb-team-race');
+  if (!el) return;
+  const teams = ['mystic','valor','instinct'];
+  const totals = { mystic:0, valor:0, instinct:0 };
+  _lbData.forEach(m => { if (totals[m.team] !== undefined) totals[m.team] += (m.points||0); });
+  const hasAny = teams.some(t => totals[t] > 0);
+  const max = Math.max(1, ...teams.map(t => totals[t]));
+  const leader = teams.reduce((a,b) => totals[b] > totals[a] ? b : a, teams[0]);
+  el.innerHTML = teams.map(t => {
+    const pct = Math.round(totals[t] / max * 100);
+    const isLead = hasAny && t === leader && totals[t] > 0;
+    return `
+      <div class="lb-team-chip${isLead ? ' lead' : ''}">
+        ${isLead ? '<span class="lb-team-crown">👑</span>' : ''}
+        <div class="lb-team-top">${TEAM_LABEL[t] || t}</div>
+        <div class="lb-team-pts">${totals[t].toLocaleString()} pt</div>
+        <div class="lb-team-bar"><div class="lb-team-bar-fill" style="width:${pct}%;background:${LB_TEAM_COLOR[t]}"></div></div>
+      </div>`;
+  }).join('');
+}
+
+// การ์ด "สถานะของคุณ" — บอกสิ่งที่สำคัญที่สุดสำหรับสมาชิกคนนั้นทันที:
+// ตอนนี้อยู่อันดับเท่าไหร่ และต้องได้อีกกี่แต้มถึงจะแซงคนข้างบน
+function renderMyStanding(ranked) {
+  const el = document.getElementById('lb-mystanding');
+  if (!el) return;
+  const myId = currentMember?.id;
+  const myEntry = ranked.find(m => m.id === myId);
+  if (!myEntry) { el.style.display = 'none'; return; }
+
+  const rank = myEntry.displayRank;
+  let icon, msg;
+  if (rank === 1) {
+    icon = '👑';
+    msg  = 'คุณคืออันดับ 1 ตอนนี้ — รักษาตำแหน่งไว้!';
+  } else {
+    const above = ranked[rank - 2]; // คนที่อยู่อันดับเหนือกว่าติดกัน
+    const gap = above ? Math.max(0, (above.points||0) - (myEntry.points||0)) : 0;
+    icon = rank <= 3 ? '🎉' : '🎯';
+    msg  = (above && gap > 0)
+      ? `อีก <strong>${gap.toLocaleString()} แต้ม</strong> แซงอันดับ #${rank-1} (${esc(above.name)})`
+      : `คุณอยู่อันดับ #${rank} ตอนนี้`;
+  }
+  el.style.display = 'flex';
+  el.innerHTML = `<span class="lb-my-icon">${icon}</span><span class="lb-my-text">${msg}</span>`;
+}
+
 function renderLeaderboard() {
   const myId = currentMember?.id;
   const all  = _lbFilter === 'all' ? _lbData : _lbData.filter(m => m.team === _lbFilter);
 
   // Re-rank after filter
   const ranked = all.map((m, i) => ({...m, displayRank: i + 1}));
+
+  renderTeamRace();
+  renderMyStanding(ranked);
 
   // Podium (top 3)
   const podiumEl = document.getElementById('lb-podium');
@@ -1764,21 +1834,29 @@ function renderLeaderboard() {
 
   podiumEl.innerHTML = podOrder.map((m, i) => {
     if (!m) return '<div class="lb-pod"></div>';
-    const av = (TEAM_AV[m.team] || 'av-mystic');
-    const initials = esc((m.name||'').slice(0,2).toUpperCase());
+    const lvl = m.trainer_level ? `<div class="lb-pod-lvl">Lv.${esc(String(m.trainer_level))}</div>` : '';
     return `
       <div class="lb-pod ${podClass[i]}">
-        <div style="font-size:${i===1?'24px':'18px'}">${podCrown[i]}</div>
-        <div class="lb-pod-av ${av}">${initials}</div>
-        <div class="lb-pod-name">${esc(m.name)}</div>
-        <div class="lb-pod-pts">${m.points||0} pt</div>
+        <div class="lb-pod-crown">${podCrown[i]}</div>
+        <div class="lb-pod-av-wrap">${lbAvatarHtml(m, 'lb-pod-av')}</div>
+        <div class="lb-pod-name">${esc(m.trainer_name || m.name)}</div>
+        ${lvl}
+        <div class="lb-pod-pts">${(m.points||0).toLocaleString()} pt</div>
         <div class="lb-pod-base">
           <div class="lb-rank-num">#${m.displayRank}</div>
         </div>
       </div>`;
   }).join('');
 
-  // Full list (ข้าม top3)
+  // หัวลิสต์ — จำนวนผู้เข้าร่วมทั้งหมด (ในตัวกรองปัจจุบัน)
+  const headEl = document.getElementById('lb-list-head');
+  if (headEl) {
+    headEl.innerHTML = ranked.length
+      ? `<div class="lb-list-head-row">👥 ผู้เข้าร่วมทั้งหมด ${ranked.length.toLocaleString()} คน</div>`
+      : '';
+  }
+
+  // Full list
   const listEl = document.getElementById('lb-list');
   if (!ranked.length) {
     listEl.innerHTML = '<div class="empty-state"><span class="empty-icon">🏆</span><p>ยังไม่มีข้อมูล</p></div>';
@@ -1786,17 +1864,18 @@ function renderLeaderboard() {
   }
   listEl.innerHTML = ranked.map(m => {
     const isMe = m.id === myId;
-    const av   = TEAM_AV[m.team] || 'av-mystic';
     const medal = m.displayRank === 1 ? '🥇' : m.displayRank === 2 ? '🥈' : m.displayRank === 3 ? '🥉' : m.displayRank;
+    const tierClass = m.displayRank===1 ? ' tier-gold' : m.displayRank===2 ? ' tier-silver' : m.displayRank===3 ? ' tier-bronze' : '';
+    const lvl = m.trainer_level ? `<span class="lb-lvl-chip">Lv.${esc(String(m.trainer_level))}</span>` : '';
     return `
-      <div class="lb-row${isMe ? ' me' : ''}">
+      <div class="lb-row${isMe ? ' me' : ''}${tierClass}">
         <div class="lb-rank">${medal}</div>
-        <div class="lb-av ${av}">${esc((m.name||'').slice(0,2).toUpperCase())}</div>
+        ${lbAvatarHtml(m, 'lb-av')}
         <div class="lb-info">
-          <div class="lb-info-name">${esc(m.name)}${isMe ? ' <span style="color:var(--red);font-size:10px">(คุณ)</span>' : ''}${(()=>{const b=getBadge(m.events||0);return b?` <span style="font-size:11px">${b.icon}</span>`:''})()}</div>
+          <div class="lb-info-name">${esc(m.trainer_name || m.name)}${isMe ? ' <span style="color:var(--red);font-size:10px">(คุณ)</span>' : ''}${(()=>{const b=getBadge(m.events||0);return b?` <span style="font-size:11px">${b.icon}</span>`:''})()}${lvl}</div>
           <div class="lb-info-sub">${esc(m.gameid)} · ${(TEAM_LABEL[m.team]||'')} · ${m.events||0} กิจกรรม</div>
         </div>
-        <div class="lb-pts">${m.points||0} <span style="font-size:10px;font-weight:600;color:var(--muted)">pt</span></div>
+        <div class="lb-pts">${(m.points||0).toLocaleString()} <span style="font-size:10px;font-weight:600;color:var(--muted)">pt</span></div>
       </div>`;
   }).join('');
 
