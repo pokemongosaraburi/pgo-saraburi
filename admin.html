@@ -515,6 +515,11 @@ function achTag(events) { const b=getBadge(events); return b?`<span class="ach-t
 const TEAM_B     = { mystic:'b-mystic',  valor:'b-valor',  instinct:'b-instinct' };
 const ROLE_B     = { superadmin:'b-superadmin', admin:'b-admin', staff:'b-staff' };
 const ROLE_RB    = { superadmin:'rb-superadmin', admin:'rb-admin', staff:'rb-staff' };
+// รายชื่อคอลัมน์ของ members ที่ปลอดภัยให้แอดมินอ่านได้ — ไม่รวม pin_hash เด็ดขาด
+// (pin_hash ทำหน้าที่เป็นรหัสผ่านจริงในระบบ login ด้วย PIN ห้ามหลุดออกไปกับ
+// response ใดๆ ที่แอดมิน/staff เห็นได้ ใช้ pin_set (boolean) แทนเพื่อเช็คว่า
+// ตั้ง PIN แล้วหรือยัง — ดู security-patch-7-pin-hash.sql)
+const MEMBER_COLS = 'id,name,gameid,phone,team,fp,events,points,registered_at,updated_at,email,suspended_until,trainer_name,trainer_level,avatar_url,terms_accepted_at,pin_set';
 
 let currentUser = null;
 let currentRole = null;
@@ -964,7 +969,7 @@ async function loadDashboard() {
   try {
     if (IS_CONFIGURED && db) {
       const [{ count: mc },{ count: ac },{ data: cis }] = await Promise.all([
-        db.from('members').select('*',{count:'exact',head:true}),
+        db.from('members').select('id',{count:'exact',head:true}),
         db.from('activities').select('*',{count:'exact',head:true}).eq('is_open',true),
         db.from('checkins').select('*').order('timestamp',{ascending:false}).limit(30)
       ]);
@@ -1025,7 +1030,7 @@ async function loadMembers() {
   try {
     let members=[];
     if (IS_CONFIGURED && db) {
-      let q=db.from('members').select('*').order('points',{ascending:false});
+      let q=db.from('members').select(MEMBER_COLS).order('points',{ascending:false});
       if (team) q=q.eq('team',team);
       const { data }=await q; members=data||[];
     } else {
@@ -1053,7 +1058,7 @@ function exportCSV() {
     let members=[],checkins=[];
     if (IS_CONFIGURED && db) {
       const [{data:ms},{data:cs}]=await Promise.all([
-        db.from('members').select('*').order('points',{ascending:false}),
+        db.from('members').select(MEMBER_COLS).order('points',{ascending:false}),
         db.from('checkins').select('*').order('timestamp',{ascending:false})
       ]);
       members=ms||[]; checkins=cs||[];
@@ -1995,7 +2000,7 @@ async function loadMemberDetail(id) {
       { data: prizes },
       { data: allMembers }
     ] = await Promise.all([
-      db.from('members').select('*').eq('id', id).single(),
+      db.from('members').select(MEMBER_COLS).eq('id', id).single(),
       db.rpc('get_member_checkins', { p_member_id: id }),
       db.from('draw_winners').select('*, activities(name)').eq('member_id', id).order('drawn_at', { ascending: false }).limit(10),
       db.from('members').select('id,points').order('points', { ascending: false })
@@ -2059,7 +2064,7 @@ async function loadMemberDetail(id) {
       ? new Date(member.updated_at).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
       : '-';
     const email   = member.email || '-';
-    const pinInfo = member.pin_hash
+    const pinInfo = member.pin_set
       ? `<span style="color:#15803d;font-weight:700">✅ ตั้งแล้ว</span>`
       : `<span style="color:#dc2626;font-weight:700">⚠️ ยังไม่ได้ตั้ง</span>`;
     const termsDate = member.terms_accepted_at
