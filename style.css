@@ -89,6 +89,7 @@ h1,h2,h3,.pts-num,.stat-num,.lb-pod-pts,.gps-title,.btn,.lb-pts,.lb-info-name,.t
 .badge-red{background:#fee2e2;color:#dc2626}
 .badge-blue{background:#dbeafe;color:#1d4ed8}
 .badge-live{background:linear-gradient(135deg,var(--red),var(--red-dark));color:#fff;box-shadow:0 2px 8px var(--red-glow)}
+.badge-gold{background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e}
 
 /* Achievement color variants (ใช้ร่วมกับทั้ง .ach-badge ของสมาชิก และ .ach-tag ของแอดมิน) */
 .ach-newcomer{background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0}

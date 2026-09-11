@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body id="page-member">
 <div class="app">
@@ -143,8 +143,12 @@
     <div class="card" id="home-card">
       <div class="user-row">
         <div class="avatar" id="home-av"></div>
-        <div style="flex:1">
-          <div style="font-size:15px;font-weight:700;color:#111" id="home-name"></div>
+        <img class="avatar" id="home-avatar-img" style="display:none;object-fit:cover" alt="Trainer avatar">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:700;color:#111;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span id="home-name"></span>
+            <span class="badge badge-gold" id="home-lv-badge" style="display:none"></span>
+          </div>
           <div style="font-size:12px;color:#6b7280;margin:2px 0" id="home-gameid"></div>
           <span class="badge" id="home-team-badge"></span>
           <span id="home-ach-badge" style="display:none"></span>
@@ -186,10 +190,29 @@
 <div class="screen" id="edit-profile">
   <div class="topbar">
     <h1>✏️ แก้ไขข้อมูลส่วนตัว</h1>
-    <p>ชื่อ/ชื่อเล่น และสีทีม</p>
+    <p>Trainer ID, เลเวล, รูปโปรไฟล์, สีทีม และ PIN</p>
   </div>
   <div class="content content--center">
     <div class="err-box" id="ep-err" style="display:none"></div>
+
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="position:relative;width:76px;height:76px;margin:0 auto">
+        <img id="ep-avatar-preview" style="display:none;width:76px;height:76px;border-radius:50%;object-fit:cover;box-shadow:0 4px 12px rgba(0,0,0,.15)" alt="รูปโปรไฟล์">
+        <div class="avatar" id="ep-avatar-initials" style="width:76px;height:76px;font-size:24px">?</div>
+      </div>
+      <label for="ep-avatar-file" class="btn btn-secondary btn-sm" style="display:inline-flex;width:auto;margin-top:10px;cursor:pointer">📷 เปลี่ยนรูปโปรไฟล์</label>
+      <input type="file" id="ep-avatar-file" accept="image/*" style="display:none" onchange="handleAvatarSelect(event)">
+      <p style="font-size:10.5px;color:var(--muted);margin-top:6px">รองรับ JPG/PNG ขนาดไม่เกิน 3MB</p>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Trainer ID (ชื่อในเกม Pokémon GO)</label>
+      <input class="form-input" id="ep-trainer-name" type="text" placeholder="เช่น BOSSTHUMB" maxlength="20" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">เลเวล Trainer</label>
+      <input class="form-input" id="ep-trainer-level" type="number" min="1" max="99" placeholder="เช่น 75">
+    </div>
     <div class="form-group">
       <label class="form-label">ชื่อ / ชื่อเล่น</label>
       <input class="form-input" id="ep-name" type="text" placeholder="เช่น สุรชัย หรือ บอส" maxlength="30" autocomplete="off">
@@ -202,7 +225,34 @@
         <div class="team-opt instinct" onclick="pickEditTeam('instinct',this)"><span class="t-icon">💛</span><span class="t-name">Instinct</span></div>
       </div>
     </div>
+
+    <p style="font-size:11px;color:var(--muted);margin:4px 0 14px">Username สำหรับเข้าสู่ระบบ: <strong id="ep-username-display">—</strong> (แก้ไขจุดนี้ไม่ได้)</p>
+
     <button class="btn btn-primary" id="ep-save-btn" onclick="doUpdateProfile()">💾 บันทึกการแก้ไข</button>
+
+    <div style="display:flex;align-items:center;gap:8px;margin:18px 0 4px">
+      <div style="flex:1;height:1px;background:#f0f0f0"></div>
+      <span style="font-size:11px;color:#9ca3af">ความปลอดภัยบัญชี</span>
+      <div style="flex:1;height:1px;background:#f0f0f0"></div>
+    </div>
+    <button class="btn btn-secondary" type="button" onclick="togglePinChange()" id="ep-pin-toggle-btn">🔑 เปลี่ยน PIN</button>
+
+    <div id="ep-pin-section" style="display:none;margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">PIN ปัจจุบัน</label>
+        <input class="form-input" id="ep-pin-old" type="password" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PIN ใหม่ 6 หลัก</label>
+        <input class="form-input" id="ep-pin-new" type="password" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ยืนยัน PIN ใหม่</label>
+        <input class="form-input" id="ep-pin-new2" type="password" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="new-password">
+      </div>
+      <p style="font-size:11px;color:var(--muted);line-height:1.5">หลังบันทึก PIN ใหม่สำเร็จ ระบบจะออกจากระบบให้อัตโนมัติ เพื่อให้เข้าสู่ระบบใหม่ด้วย PIN ล่าสุด</p>
+    </div>
+
     <button class="btn btn-secondary mt-8" onclick="goScreen('home')">← กลับ</button>
   </div>
 </div>
@@ -519,8 +569,9 @@ function pickTeam(team, el) {
   el.classList.add('selected');
 }
 
-// ===== Edit Profile (ชื่อ/ชื่อเล่น + สีทีม เท่านั้น — ไม่แตะ Trainer Name/PIN) =====
+// ===== Edit Profile (Trainer ID/เลเวล/รูป/ชื่อเล่น/สีทีม + เปลี่ยน PIN) =====
 let editSelectedTeam = '';
+let _epAvatarFile = null;
 
 function pickEditTeam(team, el) {
   editSelectedTeam = team;
@@ -528,19 +579,78 @@ function pickEditTeam(team, el) {
   el.classList.add('selected');
 }
 
+function togglePinChange() {
+  const sec = document.getElementById('ep-pin-section');
+  sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
+}
+
+function handleAvatarSelect(evt) {
+  const file = evt.target.files[0];
+  const errEl = document.getElementById('ep-err');
+  errEl.style.display = 'none';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    errEl.textContent = 'กรุณาเลือกไฟล์รูปภาพเท่านั้น';
+    errEl.style.display = 'block';
+    evt.target.value = '';
+    return;
+  }
+  if (file.size > 3 * 1024 * 1024) {
+    errEl.textContent = 'ไฟล์รูปต้องมีขนาดไม่เกิน 3MB';
+    errEl.style.display = 'block';
+    evt.target.value = '';
+    return;
+  }
+  _epAvatarFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('ep-avatar-preview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    document.getElementById('ep-avatar-initials').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
 function openEditProfile() {
   if (!currentMember) return;
   document.getElementById('ep-name').value = currentMember.name || '';
+  document.getElementById('ep-trainer-name').value = currentMember.trainer_name || '';
+  document.getElementById('ep-trainer-level').value = currentMember.trainer_level || '';
+  document.getElementById('ep-username-display').textContent = currentMember.gameid || '-';
   editSelectedTeam = currentMember.team || '';
   document.querySelectorAll('#ep-team-grid .team-opt').forEach(t => {
     t.classList.toggle('selected', t.classList.contains(editSelectedTeam));
   });
+
+  _epAvatarFile = null;
+  document.getElementById('ep-avatar-file').value = '';
+  const preview  = document.getElementById('ep-avatar-preview');
+  const initials = document.getElementById('ep-avatar-initials');
+  if (currentMember.avatar_url) {
+    preview.src = currentMember.avatar_url;
+    preview.style.display = 'block';
+    initials.style.display = 'none';
+  } else {
+    preview.style.display = 'none';
+    initials.style.display = 'flex';
+    initials.textContent = (currentMember.trainer_name || currentMember.name || '?').slice(0,2).toUpperCase();
+    initials.className = 'avatar ' + (TEAM_AV[currentMember.team]||'av-mystic');
+  }
+
+  document.getElementById('ep-pin-old').value = '';
+  document.getElementById('ep-pin-new').value = '';
+  document.getElementById('ep-pin-new2').value = '';
+  document.getElementById('ep-pin-section').style.display = 'none';
+
   document.getElementById('ep-err').style.display = 'none';
   goScreen('edit-profile');
 }
 
 async function doUpdateProfile() {
-  const name  = document.getElementById('ep-name').value.trim();
+  const name         = document.getElementById('ep-name').value.trim();
+  const trainerName  = document.getElementById('ep-trainer-name').value.trim();
+  const trainerLvRaw = document.getElementById('ep-trainer-level').value.trim();
   const errEl = document.getElementById('ep-err');
   errEl.style.display = 'none';
 
@@ -548,13 +658,52 @@ async function doUpdateProfile() {
   if (!editSelectedTeam) { errEl.textContent = 'กรุณาเลือกสีทีม'; errEl.style.display = 'block'; return; }
   if (!db || !currentMember) { errEl.textContent = 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'; errEl.style.display = 'block'; return; }
 
+  let trainerLevel = null;
+  if (trainerLvRaw) {
+    trainerLevel = parseInt(trainerLvRaw, 10);
+    if (isNaN(trainerLevel) || trainerLevel < 1 || trainerLevel > 99) {
+      errEl.textContent = 'เลเวล Trainer ต้องเป็นตัวเลข 1-99';
+      errEl.style.display = 'block';
+      return;
+    }
+  }
+
+  const pinOld  = document.getElementById('ep-pin-old').value;
+  const pinNew  = document.getElementById('ep-pin-new').value;
+  const pinNew2 = document.getElementById('ep-pin-new2').value;
+  const wantsPinChange = !!(pinOld || pinNew || pinNew2);
+  if (wantsPinChange) {
+    if (!/^\d{6}$/.test(pinOld)) { errEl.textContent = 'กรุณากรอก PIN ปัจจุบันให้ครบ 6 หลัก'; errEl.style.display = 'block'; return; }
+    if (!/^\d{6}$/.test(pinNew)) { errEl.textContent = 'PIN ใหม่ต้องเป็นตัวเลข 6 หลัก'; errEl.style.display = 'block'; return; }
+    if (pinNew !== pinNew2) { errEl.textContent = 'ยืนยัน PIN ใหม่ไม่ตรงกัน'; errEl.style.display = 'block'; return; }
+  }
+
   const btn = document.getElementById('ep-save-btn');
   btn.disabled = true;
   showLoader('กำลังบันทึก...');
   try {
     const fp = currentMember.fp || getFingerprint();
+
+    // 1) อัปโหลดรูปโปรไฟล์ (ถ้ามีการเลือกไฟล์ใหม่)
+    let avatarUrl = null;
+    if (_epAvatarFile) {
+      const ext  = (_epAvatarFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g,'') || 'jpg';
+      const path = `${currentMember.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await db.storage.from('avatars').upload(path, _epAvatarFile, { upsert: true, cacheControl: '3600' });
+      if (upErr) throw new Error('อัปโหลดรูปไม่สำเร็จ: ' + upErr.message);
+      const { data: pub } = db.storage.from('avatars').getPublicUrl(path);
+      avatarUrl = pub?.publicUrl || null;
+    }
+
+    // 2) บันทึกข้อมูลโปรไฟล์
     const { data, error } = await db.rpc('update_member_profile', {
-      p_member_id: currentMember.id, p_fp: fp, p_name: name, p_team: editSelectedTeam
+      p_member_id: currentMember.id,
+      p_fp: fp,
+      p_name: name,
+      p_team: editSelectedTeam,
+      p_trainer_name: trainerName || null,
+      p_trainer_level: trainerLevel,
+      p_avatar_url: avatarUrl
     });
     if (error) throw error;
     if (!data?.ok) {
@@ -562,6 +711,28 @@ async function doUpdateProfile() {
       errEl.style.display = 'block';
       return;
     }
+
+    // 3) เปลี่ยน PIN (ถ้ามีการกรอกฟอร์มส่วนนี้)
+    if (wantsPinChange) {
+      const oldHash = await sha256(pinOld);
+      const newHash = await sha256(pinNew);
+      const { data: pinData, error: pinErr } = await db.rpc('change_member_pin', {
+        p_member_id: currentMember.id, p_fp: fp, p_old_pin_hash: oldHash, p_new_pin_hash: newHash
+      });
+      if (pinErr) throw pinErr;
+      if (!pinData?.ok) {
+        errEl.textContent = pinData?.message || 'เปลี่ยน PIN ไม่สำเร็จ';
+        errEl.style.display = 'block';
+        return;
+      }
+      hideLoader();
+      alert('✅ บันทึกข้อมูลและเปลี่ยน PIN สำเร็จ\n\nเพื่อความปลอดภัย ระบบจะออกจากระบบให้อัตโนมัติ กรุณาเข้าสู่ระบบใหม่อีกครั้งด้วย Username และ PIN ล่าสุดของคุณ');
+      localStorage.setItem('pgo_logged_out', '1');
+      currentMember = null;
+      goScreen('login');
+      return;
+    }
+
     hideLoader();
     await renderHome();
     goScreen('home');
@@ -856,11 +1027,29 @@ async function renderHome() {
   if (checkSuspended(member)) return;
 
 
-  const initials = member.name.slice(0,2).toUpperCase();
-  document.getElementById('home-av').textContent = initials;
-  document.getElementById('home-av').className = 'avatar ' + (TEAM_AV[member.team]||'av-mystic');
-  document.getElementById('home-name').textContent = member.name;
-  document.getElementById('home-gameid').textContent = member.gameid;
+  const displayName = member.trainer_name || member.name;
+  const initials = displayName.slice(0,2).toUpperCase();
+  const avatarImg = document.getElementById('home-avatar-img');
+  const avatarDiv = document.getElementById('home-av');
+  if (member.avatar_url) {
+    avatarImg.src = member.avatar_url;
+    avatarImg.style.display = 'block';
+    avatarDiv.style.display = 'none';
+  } else {
+    avatarImg.style.display = 'none';
+    avatarDiv.style.display = 'flex';
+    avatarDiv.textContent = initials;
+    avatarDiv.className = 'avatar ' + (TEAM_AV[member.team]||'av-mystic');
+  }
+  document.getElementById('home-name').textContent = displayName;
+  const lvBadge = document.getElementById('home-lv-badge');
+  if (member.trainer_level) {
+    lvBadge.textContent = 'Lv.' + member.trainer_level;
+    lvBadge.style.display = 'inline-flex';
+  } else {
+    lvBadge.style.display = 'none';
+  }
+  document.getElementById('home-gameid').textContent = 'Username: ' + member.gameid;
   const tb = document.getElementById('home-team-badge');
   tb.textContent = TEAM_LABEL[member.team]||'';
   tb.className = 'badge ' + (TEAM_BADGE[member.team]||'badge-blue');
