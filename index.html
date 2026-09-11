@@ -1534,16 +1534,27 @@ async function doCheckin() {
       await _showCheckinSuccess(member);
     } else {
       // ===== QR: สร้าง token แล้วรอแอดมินสแกน =====
+      // เช็คระยะซ้ำฝั่ง client ก่อนยิง RPC (กันเคส gpsResult ค้างจากรอบก่อนหรือปุ่มหลุด disabled)
+      // การตรวจสอบจริงที่เชื่อถือได้คือฝั่ง server ใน create_checkin_token (ดู OUT_OF_RANGE ด้านล่าง)
+      const _radius = activeActivity.radius || 100;
+      if (gpsResult.dist > _radius) {
+        showErr(errEl, '❌ คุณอยู่นอกระยะเช็คอิน กรุณาเข้าใกล้จุดกิจกรรมแล้วลองใหม่');
+        document.getElementById('ci-btn').disabled = false;
+        return;
+      }
       const { data: tokenData, error: tokenErr } = await db.rpc('create_checkin_token', {
         p_fp: fp,
-        p_activity_id: activeActivity.id
+        p_activity_id: activeActivity.id,
+        p_lat: gpsResult.lat,
+        p_lng: gpsResult.lng
       });
       if (tokenErr) {
         const msg = tokenErr.message || '';
-        if (msg.includes('ALREADY_CHECKIN'))       showErr(errEl, '✅ คุณเช็คอินกิจกรรมนี้ไปแล้ว');
-        else if (msg.includes('ACTIVITY_ENDED'))   showErr(errEl, '⏰ กิจกรรมนี้หมดเวลาแล้ว');
+        if (msg.includes('ALREADY_CHECKIN'))         showErr(errEl, '✅ คุณเช็คอินกิจกรรมนี้ไปแล้ว');
+        else if (msg.includes('ACTIVITY_ENDED'))     showErr(errEl, '⏰ กิจกรรมนี้หมดเวลาแล้ว');
         else if (msg.includes('ACTIVITY_NOT_FOUND')) showErr(errEl, '❌ ไม่พบกิจกรรมหรือกิจกรรมปิดแล้ว');
-        else if (msg.includes('MEMBER_NOT_FOUND')) showErr(errEl, '❌ ไม่พบข้อมูลสมาชิก กรุณาลงทะเบียนใหม่');
+        else if (msg.includes('MEMBER_NOT_FOUND'))   showErr(errEl, '❌ ไม่พบข้อมูลสมาชิก กรุณาลงทะเบียนใหม่');
+        else if (msg.includes('OUT_OF_RANGE'))       showErr(errEl, '❌ คุณอยู่นอกระยะเช็คอิน กรุณาเข้าใกล้จุดกิจกรรมแล้วลองใหม่');
         else showErr(errEl, 'เกิดข้อผิดพลาด: ' + msg);
         document.getElementById('ci-btn').disabled = false;
         return;
