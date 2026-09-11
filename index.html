@@ -1457,21 +1457,36 @@ async function startCheckin(actId) {
   if (!navigator.geolocation) { setGPSUI('fail','📵','ไม่รองรับ GPS','เบราว์เซอร์นี้ไม่รองรับ Geolocation'); return; }
 
   navigator.geolocation.getCurrentPosition(pos => {
-    const radius = activeActivity.radius || activeActivity.radius;
+    const radius = activeActivity.radius || 100;
     const dist = haversine(pos.coords.latitude, pos.coords.longitude, activeActivity.lat, activeActivity.lng);
-    gpsResult = { lat: pos.coords.latitude, lng: pos.coords.longitude, dist, acc: Math.round(pos.coords.accuracy) };
+    const acc = Math.round(pos.coords.accuracy);
+    gpsResult = { lat: pos.coords.latitude, lng: pos.coords.longitude, dist, acc };
 
     const db2 = document.getElementById('gps-dist-badge');
     db2.style.display = 'inline-flex';
     db2.textContent = 'ระยะ: ' + dist.toLocaleString() + ' เมตร';
 
-    if (dist <= radius) {
-      db2.className = 'badge badge-ok';
-      setGPSUI('ok','✅','อยู่ในพื้นที่ ✓','ห่าง '+dist.toLocaleString()+' เมตร จากจุดกิจกรรม');
-      document.getElementById('ci-btn').disabled = false;
-    } else {
+    // เช็คความแม่นยำ GPS — กรองสัญญาณที่ไม่น่าเชื่อถือ (เช่น ประมาณตำแหน่งจาก
+    // WiFi/เสาสัญญาณแทน GPS จริง) ไม่ใช่การกัน "ปลอม GPS" โดยตรง เพราะแอปปลอม
+    // ตำแหน่งส่วนใหญ่ตั้งค่าความแม่นยำให้ดูสมจริงได้อยู่แล้ว — ใช้บังคับเฉพาะ
+    // โหมด GPS self-checkin ที่ไม่มีแอดมินตรวจซ้ำ ส่วนโหมด QR แค่เตือนเฉยๆ
+    // เพราะสุดท้ายแอดมินต้องสแกนยืนยันอยู่ดี
+    const ACC_LIMIT = 150;
+    const mode = activeActivity.checkin_mode || 'qr';
+    const accBad = acc > ACC_LIMIT;
+
+    if (dist > radius) {
       db2.className = 'badge badge-red';
       setGPSUI('fail','❌','อยู่นอกพื้นที่','คุณอยู่ห่าง '+dist.toLocaleString()+'m — ต้องอยู่ภายใน '+radius.toLocaleString()+'m');
+    } else if (mode === 'gps' && accBad) {
+      db2.className = 'badge badge-red';
+      setGPSUI('fail','📡','ความแม่นยำ GPS ต่ำเกินไป','สัญญาณไม่แม่นยำพอ (~'+acc+'m) กรุณาออกไปที่โล่งแจ้งแล้วลองใหม่');
+    } else {
+      db2.className = 'badge badge-ok';
+      let detail = 'ห่าง '+dist.toLocaleString()+' เมตร จากจุดกิจกรรม';
+      if (accBad) detail += ' (⚠️ ความแม่นยำ GPS ต่ำ ~'+acc+'m)';
+      setGPSUI('ok','✅','อยู่ในพื้นที่ ✓', detail);
+      document.getElementById('ci-btn').disabled = false;
     }
   }, err => {
     const msgs = {1:'กรุณาอนุญาต GPS ในเบราว์เซอร์',2:'ระบุตำแหน่งไม่ได้',3:'หมดเวลารับสัญญาณ'};
@@ -1517,7 +1532,8 @@ async function doCheckin() {
         p_fp: fp,
         p_activity_id: activeActivity.id,
         p_lat: gpsResult.lat,
-        p_lng: gpsResult.lng
+        p_lng: gpsResult.lng,
+        p_accuracy: gpsResult.acc
       });
       if (error) {
         const msg = error.message || '';
@@ -1526,6 +1542,7 @@ async function doCheckin() {
         else if (msg.includes('ACTIVITY_NOT_FOUND')) showErr(errEl, '❌ ไม่พบกิจกรรมหรือกิจกรรมปิดแล้ว');
         else if (msg.includes('MEMBER_NOT_FOUND'))   showErr(errEl, '❌ ไม่พบข้อมูลสมาชิก กรุณาลงทะเบียนใหม่');
         else if (msg.includes('OUT_OF_RANGE'))       showErr(errEl, '❌ คุณอยู่นอกระยะเช็คอิน กรุณาเข้าใกล้จุดกิจกรรมแล้วลองใหม่');
+        else if (msg.includes('GPS_INACCURATE'))     showErr(errEl, '📡 ความแม่นยำ GPS ต่ำเกินไป กรุณาออกไปที่โล่งแจ้งแล้วลองใหม่');
         else showErr(errEl, 'เกิดข้อผิดพลาด: ' + msg);
         document.getElementById('ci-btn').disabled = false;
         return;
