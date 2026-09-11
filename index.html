@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body id="page-member">
 <div class="app">
@@ -21,6 +21,22 @@
     <circle cx="50" cy="50" r="7" fill="white" stroke="#555" stroke-width="2"/>
   </svg>
   <div style="font-size:13px;color:#6b7280" id="loader-text">กำลังโหลด...</div>
+</div>
+
+<!-- ANNOUNCEMENT POPUP (ประกาศ/นัดหมายจากแอดมิน หลังล็อกอิน) -->
+<div class="announce-overlay hidden" id="announce-overlay">
+  <div class="announce-card">
+    <img id="announce-img" style="display:none" alt="ประกาศ">
+    <div class="announce-body">
+      <h3 id="announce-title" style="display:none"></h3>
+      <p id="announce-message"></p>
+    </div>
+    <label class="announce-checkbox">
+      <input type="checkbox" id="announce-hide-today">
+      <span>ไม่แสดงอีกสำหรับวันนี้</span>
+    </label>
+    <button class="btn btn-primary" onclick="ackAnnouncement()">✅ รับทราบ</button>
+  </div>
 </div>
 
 <!-- SPLASH -->
@@ -555,6 +571,59 @@ function maybeShowPushBanner(member) {
   } else {
     banner.style.display = 'block';
   }
+}
+
+// วันที่ (YYYY-MM-DD) ตามเวลาไทย ใช้เทียบ "วันเดียวกันไหม" แทน toISOString()
+// ตรงๆ เพราะ toISOString() จะใช้เวลา UTC ซึ่งคลาดเคลื่อนจากเวลาไทยได้ช่วงข้ามคืน
+function bkkDateStr(d) {
+  return new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+}
+
+// เรียกจาก renderHome(): เช็คประกาศล่าสุดที่ active อยู่
+// 1) ประกาศจะ auto popup ให้เห็นแค่ "วันเดียวกับที่โพสต์" เท่านั้น พอข้ามเที่ยงคืน
+//    ไปแล้วจะหยุดเด้งอัตโนมัติทันที ไม่ว่าสมาชิกจะเคยกดรับทราบ/ไม่แสดงอีกวันนี้
+//    ไปแล้วหรือยังไม่เคยเห็นเลยก็ตาม (กันประกาศเก่าค้างเด้งซ้ำข้ามวันเพราะแอดมิน
+//    ลืมกดปิด) — ถ้าต้องการให้เด้งอีก แอดมินต้องสร้างประกาศใหม่
+// 2) ถ้ายังอยู่ในวันเดียวกับที่โพสต์ ค่อยเช็ค localStorage ว่าเคยกด "ไม่แสดง
+//    อีกวันนี้" ไปแล้วหรือยัง (ไม่มี state ฝั่ง DB เพราะแอปนี้ไม่มี session จริง)
+let _currentAnnouncement = null;
+async function maybeShowAnnouncement() {
+  if (!IS_CONFIGURED || !db) return;
+  try {
+    const { data } = await db.from('announcements')
+      .select('*').eq('is_active', true)
+      .order('created_at', { ascending: false }).limit(1);
+    const ann = data && data[0];
+    if (!ann) return;
+
+    const today = bkkDateStr(new Date());
+    if (bkkDateStr(ann.created_at) !== today) return; // ข้ามวันที่โพสต์ไปแล้ว หยุดเด้ง
+
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem('pgo_announce_dismiss') || 'null'); } catch(e) {}
+    if (stored && stored.id === ann.id && stored.date === today) return;
+
+    _currentAnnouncement = ann;
+    const img   = document.getElementById('announce-img');
+    const title = document.getElementById('announce-title');
+    const msg   = document.getElementById('announce-message');
+    if (ann.image_url) { img.src = ann.image_url; img.style.display = 'block'; }
+    else { img.style.display = 'none'; }
+    if (ann.title) { title.textContent = ann.title; title.style.display = 'block'; }
+    else { title.style.display = 'none'; }
+    msg.textContent = ann.message || '';
+    document.getElementById('announce-hide-today').checked = false;
+    document.getElementById('announce-overlay').classList.remove('hidden');
+  } catch(e) { console.warn('load announcement failed', e); }
+}
+
+function ackAnnouncement() {
+  const hideToday = document.getElementById('announce-hide-today').checked;
+  if (hideToday && _currentAnnouncement) {
+    const today = bkkDateStr(new Date());
+    localStorage.setItem('pgo_announce_dismiss', JSON.stringify({ id: _currentAnnouncement.id, date: today }));
+  }
+  document.getElementById('announce-overlay').classList.add('hidden');
 }
 
 // ===== Device Fingerprint =====
@@ -1142,6 +1211,7 @@ async function renderHome() {
   }
 
   maybeShowPushBanner(member);
+  maybeShowAnnouncement();
   await renderActivityList(member);
 }
 

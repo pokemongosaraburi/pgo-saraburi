@@ -8,7 +8,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body id="page-admin">
 
@@ -66,6 +66,7 @@
     <button class="tab active" id="tab-dashboard"  onclick="switchTab('dashboard')">📊 ภาพรวม</button>
     <button class="tab"        id="tab-members"    onclick="switchTab('members')">👥 สมาชิก <span id="pin-reset-badge" style="display:none;background:#dc2626;color:#fff;border-radius:20px;font-size:10px;font-weight:800;padding:1px 6px;margin-left:2px"></span></button>
     <button class="tab"        id="tab-activities" onclick="switchTab('activities')">🎯 กิจกรรม</button>
+    <button class="tab"        id="tab-announce"   onclick="switchTab('announce')">📢 ประกาศ</button>
     <button class="tab"        id="tab-draw"       onclick="switchTab('draw')">🎁 สุ่มรางวัล</button>
     <button class="tab"        id="tab-scan"       onclick="switchTab('scan')">📷 สแกน QR</button>
     <button class="tab hidden" id="tab-team"       onclick="switchTab('team')">🔐 ทีมงาน</button>
@@ -193,6 +194,42 @@
     <div class="card">
       <h2>รายการกิจกรรม</h2>
       <div id="act-list"></div>
+    </div>
+  </div>
+
+  <!-- ANNOUNCEMENT (popup หลังล็อกอินฝั่งสมาชิก) -->
+  <div class="tab-panel" id="panel-announce">
+    <div class="card">
+      <h2>📢 สร้างประกาศใหม่</h2>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px">ประกาศใหม่จะขึ้น pop-up ให้สมาชิกทุกคนเห็นทันทีหลังล็อกอินครั้งถัดไป และจะปิดประกาศเก่าที่เคยเปิดไว้อัตโนมัติ (แสดงได้ทีละ 1 ประกาศ)</p>
+      <div class="err-box hidden" id="ann-err"></div>
+      <div class="form-group">
+        <label class="form-label">หัวข้อ (ไม่บังคับ)</label>
+        <input class="form-input" id="ann-title" type="text" placeholder="เช่น นัดหมายกิจกรรมสัปดาห์นี้" maxlength="60">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ข้อความ</label>
+        <textarea class="form-input" id="ann-message" rows="4" style="resize:vertical" placeholder="รายละเอียดกิจกรรม/การนัดหมายที่ต้องการแจ้งสมาชิก"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">รูปภาพประกอบ (ไม่บังคับ)</label>
+        <div id="ann-img-preview-wrap" style="display:none;margin-bottom:8px">
+          <img id="ann-img-preview" style="width:100%;max-height:180px;object-fit:cover;border-radius:9px;border:1.5px solid #e5e7eb">
+        </div>
+        <input type="file" id="ann-image" accept="image/*" onchange="previewAnnounceImage(this)" style="display:none">
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('ann-image').click()">🖼 เลือกรูปภาพ</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="ann-img-clear-btn" onclick="clearAnnounceImage()" style="display:none">✕ ลบรูป</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="ann-create-btn" onclick="createAnnouncement()">📢 เผยแพร่ประกาศ</button>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2 style="margin:0">ประวัติประกาศ</h2>
+        <button class="btn btn-secondary btn-sm" onclick="loadAnnouncements()">↻ รีเฟรช</button>
+      </div>
+      <div id="ann-list"></div>
     </div>
   </div>
 
@@ -490,7 +527,7 @@ function bootAdmin() {
   rb.className   = 'role-badge '+(ROLE_RB[currentRole]||'rb-staff');
   $('top-info').textContent = (currentUser?.email||'') + ' · เข้าสู่ระบบแล้ว';
   if (currentRole==='superadmin') { show('tab-team'); }
-  if (currentRole==='staff')      { hide('tab-draw'); hide('act-form-card'); }
+  if (currentRole==='staff')      { hide('tab-draw'); hide('act-form-card'); hide('tab-announce'); }
   loadDashboard();
   loadActivitiesForDraw();
   loadPinResets();
@@ -715,6 +752,7 @@ function switchTab(name) {
   if (name==='dashboard')  loadDashboard();
   if (name==='members')    { loadMembers(); loadPinResets(); }
   if (name==='activities') loadActivities();
+  if (name==='announce')   loadAnnouncements();
   if (name==='draw')       loadDrawCandidates();
   if (name==='team')       { loadTeam(); loadSplashImage(); loadPushSubscribers(); loadPushLogs(); }
   if (name==='scan')       { _mcMembersCache = []; loadMcActivities(); }
@@ -1130,6 +1168,135 @@ function clearImage() {
   $('img-preview-wrap').style.display='none';
   $('img-clear-btn').style.display='none';
   _resizedBlob=null;
+}
+
+// ==================== Announcement (popup หลังล็อกอินฝั่งสมาชิก) ====================
+let _annResizedBlob = null;
+
+function previewAnnounceImage(input) {
+  const file=input.files[0]; if(!file) return;
+  const MAX_W=1000, MAX_H=1000, QUALITY=0.88;
+  const img=new Image();
+  const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    URL.revokeObjectURL(url);
+    let w=img.width, h=img.height;
+    if (w>MAX_W||h>MAX_H) {
+      const ratio=Math.min(MAX_W/w, MAX_H/h);
+      w=Math.round(w*ratio); h=Math.round(h*ratio);
+    }
+    const canvas=document.createElement('canvas');
+    canvas.width=w; canvas.height=h;
+    canvas.getContext('2d').drawImage(img,0,0,w,h);
+    canvas.toBlob(blob=>{
+      _annResizedBlob=blob;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        $('ann-img-preview').src=e.target.result;
+        $('ann-img-preview-wrap').style.display='block';
+        $('ann-img-clear-btn').style.display='';
+      };
+      reader.readAsDataURL(blob);
+    }, file.type==='image/png'?'image/png':'image/jpeg', QUALITY);
+  };
+  img.src=url;
+}
+function clearAnnounceImage() {
+  $('ann-image').value='';
+  $('ann-img-preview').src='';
+  $('ann-img-preview-wrap').style.display='none';
+  $('ann-img-clear-btn').style.display='none';
+  _annResizedBlob=null;
+}
+
+async function createAnnouncement() {
+  const title   = $('ann-title').value.trim();
+  const message = $('ann-message').value.trim();
+  hideErr('ann-err');
+  if (!message) { showErr('ann-err','กรุณากรอกข้อความประกาศ'); return; }
+  if (!IS_CONFIGURED || !db) { showErr('ann-err','ระบบยังไม่ได้ตั้งค่า Supabase'); return; }
+  $('ann-create-btn').disabled = true;
+  try {
+    let image_url = null;
+    if (_annResizedBlob) {
+      const ext  = _annResizedBlob.type==='image/png' ? 'png' : 'jpg';
+      const path = `announce_${Date.now()}.${ext}`;
+      const { error: upErr } = await db.storage.from('announcements').upload(path, _annResizedBlob, { contentType: _annResizedBlob.type, upsert:false });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = db.storage.from('announcements').getPublicUrl(path);
+      image_url = publicUrl;
+    }
+    // ปิดประกาศเก่าที่เคย active อยู่ทั้งหมดก่อน (แสดงได้ทีละ 1 ประกาศ)
+    await db.from('announcements').update({ is_active:false }).eq('is_active', true);
+    const { error } = await db.from('announcements').insert({
+      title: title || null, message, image_url, is_active: true,
+      created_by: currentUser?.email || null
+    });
+    if (error) throw error;
+    alert('✅ เผยแพร่ประกาศเรียบร้อย สมาชิกจะเห็น pop-up หลังล็อกอินครั้งถัดไป');
+    $('ann-title').value=''; $('ann-message').value=''; clearAnnounceImage();
+    loadAnnouncements();
+  } catch(e) { showErr('ann-err', e.message); }
+  finally { $('ann-create-btn').disabled = false; }
+}
+
+// วันที่ (YYYY-MM-DD) ตามเวลาไทย ใช้เทียบว่าประกาศยังอยู่ในวันที่โพสต์ไหม
+function bkkDateStr(d) { return new Date(d).toLocaleDateString('en-CA', { timeZone:'Asia/Bangkok' }); }
+
+async function loadAnnouncements() {
+  if (!IS_CONFIGURED || !db) { $('ann-list').innerHTML = '<div class="empty">ระบบยังไม่ได้ตั้งค่า Supabase</div>'; return; }
+  $('ann-list').innerHTML = '<div class="empty">กำลังโหลด...</div>';
+  try {
+    const { data, error } = await db.from('announcements').select('*').order('created_at', { ascending:false }).limit(30);
+    if (error) throw error;
+    if (!data || !data.length) { $('ann-list').innerHTML = '<div class="empty">ยังไม่มีประกาศ</div>'; return; }
+    const today = bkkDateStr(new Date());
+    $('ann-list').innerHTML = data.map(a => {
+      // ประกาศจะเด้ง popup ให้สมาชิกเห็นแค่วันเดียวกับที่โพสต์เท่านั้น (ดู
+      // maybeShowAnnouncement() ใน index.html) ข้ามวันไปแล้วต่อให้ is_active
+      // ยังเป็น true อยู่ก็จะไม่เด้งอัตโนมัติอีก — โชว์ badge เตือนแอดมินไว้
+      // กันสับสนว่าทำไม "กำลังแสดง" แต่สมาชิกไม่เห็น popup แล้ว
+      const expired = a.is_active && bkkDateStr(a.created_at) !== today;
+      let badgeLabel = 'ปิดอยู่', badgeBg = '#f3f4f6', badgeColor = '#6b7280';
+      if (a.is_active && !expired) { badgeLabel = '🟢 กำลังแสดง'; badgeBg = '#dcfce7'; badgeColor = '#15803d'; }
+      else if (expired) { badgeLabel = '🟡 หมดอายุ (ข้ามวันแล้ว ไม่เด้งซ้ำ)'; badgeBg = '#fef9c3'; badgeColor = '#854d0e'; }
+      return `
+      <div style="display:flex;gap:10px;padding:12px 0;border-bottom:1px solid #f3f4f6;align-items:flex-start">
+        ${a.image_url ? `<img src="${esc(a.image_url)}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0">` : ''}
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${a.title ? `<strong style="font-size:13px">${esc(a.title)}</strong>` : ''}
+            <span class="badge" style="background:${badgeBg};color:${badgeColor}">${badgeLabel}</span>
+          </div>
+          <div style="font-size:12.5px;color:#374151;margin-top:3px;white-space:pre-wrap">${esc(a.message)}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:4px">${fmtDT(a.created_at)}${a.created_by?' · '+esc(a.created_by):''}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+          <button class="btn btn-secondary btn-sm" style="width:auto" onclick="toggleAnnouncementActive('${a.id}', ${a.is_active})">${a.is_active?'ปิด':'เปิด'}</button>
+          <button class="btn btn-secondary btn-sm" style="width:auto;color:#dc2626" onclick="deleteAnnouncementRow('${a.id}')">ลบ</button>
+        </div>
+      </div>
+    `;
+    }).join('');
+  } catch(e) { $('ann-list').innerHTML = `<div class="empty">โหลดไม่สำเร็จ: ${esc(e.message)}</div>`; }
+}
+
+async function toggleAnnouncementActive(id, isActive) {
+  try {
+    // เปิดประกาศนี้ = ปิดประกาศอื่นที่ active อยู่ก่อน (แสดงได้ทีละ 1 ประกาศ)
+    if (!isActive) await db.from('announcements').update({ is_active:false }).eq('is_active', true);
+    await db.from('announcements').update({ is_active: !isActive }).eq('id', id);
+    loadAnnouncements();
+  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
+}
+
+async function deleteAnnouncementRow(id) {
+  const ok = await showConfirm({ icon:'🗑', title:'ลบประกาศ?', message:'ประกาศนี้จะหายไปถาวร', okText:'ลบประกาศ' });
+  if (!ok) return;
+  try {
+    await db.from('announcements').delete().eq('id', id);
+    loadAnnouncements();
+  } catch(e) { alert('เกิดข้อผิดพลาด: '+e.message); }
 }
 
 function useMyGPS() {
