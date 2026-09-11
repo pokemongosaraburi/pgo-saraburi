@@ -847,13 +847,16 @@ async function processScanToken(token) {
   // คนถัดไป" ด้วย ไม่งั้นการ์ดผลลัพธ์ล่าสุด (เช่น "เช็คอินสำเร็จ! ชื่อคนก่อนหน้า")
   // จะค้างอยู่ตลอดไป ทำให้ดูเหมือนกล้องค้าง/หยุดทำงาน ทั้งที่จริงๆ กำลังสแกน
   // หาคนถัดไปอยู่เบื้องหลัง
+  // หมายเหตุ: ต้องเคลียร์การ์ดนี้เสมอไม่ว่าจะมาจากกล้องหรือพิมพ์ Token มือ —
+  // เดิมเคลียร์เฉพาะตอน _scanStream มีค่า (กล้องเปิดอยู่) ทำให้เวลาพิมพ์ Token มือ
+  // โดยไม่ได้เปิดกล้อง การ์ดผลลัพธ์ค้างอยู่ตลอดไป
   setTimeout(() => {
     _scanCooldown     = false;
     _lastScannedToken = '';
+    resultEl.style.display = 'none';
+    resultEl.innerHTML = '';
     if (_scanStream) {
       _scanRaf = requestAnimationFrame(scanLoop);
-      resultEl.style.display = 'none';
-      resultEl.innerHTML = '';
       $('scan-info-msg').className = 'info-box';
       $('scan-info-msg').textContent = '📷 พร้อมสแกนคนถัดไป — ให้สมาชิกแสดง QR';
     }

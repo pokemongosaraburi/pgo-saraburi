@@ -1613,6 +1613,7 @@ async function showQR(tokenData, member) {
       if (!st) return;
       if (st.status === 'used') {
         clearQRTimers();
+        closeTokenOverlay();
         statusEl.textContent = '✅ สแกนสำเร็จ! กำลังแสดงผล...';
         statusEl.style.color = '#15803d';
         cancelBtn.style.display = 'none';
@@ -1646,6 +1647,7 @@ function closeTokenOverlay() {
 }
 
 async function _showCheckinSuccess(member) {
+  closeTokenOverlay(); // กันไม่ให้ popup Token ค้างทับหน้าจอเช็คอินสำเร็จ
   try {
     if (IS_CONFIGURED && db) {
       const { data } = await db.rpc('get_member_by_fp', { p_fp: getFingerprint() });
