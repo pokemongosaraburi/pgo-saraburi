@@ -30,7 +30,50 @@
       <input class="form-input" id="login-pw" type="password" placeholder="••••••••" autocomplete="current-password">
     </div>
     <button class="btn btn-primary" id="login-btn" onclick="doLogin()">🔐 เข้าสู่ระบบ</button>
-    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:14px">เข้าถึงได้เฉพาะทีมงานที่ได้รับอนุญาต</p>
+    <div style="text-align:center;margin-top:12px">
+      <button onclick="showForgotPassword()" style="background:none;border:none;font-size:13px;color:var(--red);cursor:pointer;text-decoration:underline">ลืมรหัสผ่าน?</button>
+    </div>
+    <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:10px">เข้าถึงได้เฉพาะทีมงานที่ได้รับอนุญาต</p>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD -->
+<div id="screen-forgot" class="hidden" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:24px;padding:36px 30px;width:100%;max-width:390px;box-shadow:0 32px 80px rgba(0,0,0,.35)">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#E8274B,#a01428);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;box-shadow:0 8px 24px rgba(232,39,75,.35)">🔓</div>
+      <h1 style="font-size:20px;font-weight:900;color:#111">ลืมรหัสผ่าน</h1>
+      <p style="font-size:13px;color:#6b7280;margin-top:4px">กรอกอีเมลที่ใช้เข้าสู่ระบบ Admin ระบบจะส่งลิงก์ตั้งรหัสผ่านใหม่ไปให้</p>
+    </div>
+    <div class="err-box hidden" id="forgot-err"></div>
+    <div class="info-box hidden" id="forgot-sent"></div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" id="forgot-email" type="email" placeholder="admin@example.com" autocomplete="email">
+    </div>
+    <button class="btn btn-primary" id="forgot-btn" onclick="sendPasswordReset()">📧 ส่งลิงก์รีเซ็ตรหัสผ่าน</button>
+    <button class="btn btn-secondary mt-8" onclick="backToLogin()">← กลับไปเข้าสู่ระบบ</button>
+  </div>
+</div>
+
+<!-- SET NEW PASSWORD (จากลิงก์ในอีเมล) -->
+<div id="screen-reset-password" class="hidden" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:24px;padding:36px 30px;width:100%;max-width:390px;box-shadow:0 32px 80px rgba(0,0,0,.35)">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#E8274B,#a01428);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px;box-shadow:0 8px 24px rgba(232,39,75,.35)">🔑</div>
+      <h1 style="font-size:20px;font-weight:900;color:#111">ตั้งรหัสผ่านใหม่</h1>
+      <p style="font-size:13px;color:#6b7280;margin-top:4px">ตั้งรหัสผ่านใหม่สำหรับบัญชี Admin ของคุณ</p>
+    </div>
+    <div class="err-box hidden" id="reset-pw-err"></div>
+    <div class="form-group">
+      <label class="form-label">รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)</label>
+      <input class="form-input" id="reset-pw-new" type="password" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label class="form-label">ยืนยันรหัสผ่านใหม่</label>
+      <input class="form-input" id="reset-pw-confirm" type="password" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <button class="btn btn-primary" id="reset-pw-btn" onclick="submitNewPassword()">✅ บันทึกรหัสผ่านใหม่</button>
   </div>
 </div>
 
@@ -442,9 +485,20 @@ const SUPABASE_ANON_KEY = 'sb_publishable__g2KWcUU1hOY8hpvE3EupQ_81szTRiy';
 const IS_CONFIGURED = !SUPABASE_URL.includes('YOUR_PROJECT');
 
 let db = null;
+let _isPasswordRecovery = false;
 if (IS_CONFIGURED) {
   const { createClient } = window.supabase;
   db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // ตรวจจับตอนคลิกลิงก์ตั้งรหัสผ่านใหม่จากอีเมล (Supabase ส่ง event นี้มาเอง
+  // หลัง parse token ใน URL แล้ว) — ต้องดักไว้ตั้งแต่ต้น ก่อน DOMContentLoaded
+  // จะเช็ค session ปกติ ไม่งั้นจะพาไปหน้า login/main ทับหน้าตั้งรหัสผ่านใหม่
+  db.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      _isPasswordRecovery = true;
+      ['screen-login','screen-main','screen-noaccess','screen-forgot'].forEach(hide);
+      show('screen-reset-password');
+    }
+  });
 }
 
 const TEAM_LABEL = { mystic:'💙 Mystic', valor:'❤️ Valor', instinct:'💛 Instinct' };
@@ -531,6 +585,53 @@ async function doLogin() {
     bootAdmin();
   } catch(e) { showErr('login-err', e.message||'เข้าสู่ระบบไม่สำเร็จ'); }
   finally { $('login-btn').disabled=false; $('login-btn').textContent='🔐 เข้าสู่ระบบ'; }
+}
+
+// ==================== ลืมรหัสผ่าน / ตั้งรหัสผ่านใหม่ ====================
+function showForgotPassword() {
+  hide('screen-login'); hideErr('forgot-err'); hide('forgot-sent');
+  $('forgot-email').value = $('login-email').value.trim();
+  show('screen-forgot');
+}
+function backToLogin() { hide('screen-forgot'); show('screen-login'); }
+
+async function sendPasswordReset() {
+  const email = $('forgot-email').value.trim();
+  hideErr('forgot-err'); hide('forgot-sent');
+  if (!email) { showErr('forgot-err', 'กรุณากรอกอีเมล'); return; }
+  if (!IS_CONFIGURED || !db) { showErr('forgot-err', 'ระบบยังไม่ได้ตั้งค่า Supabase'); return; }
+  $('forgot-btn').disabled = true;
+  try {
+    // redirect กลับมาที่ admin.html หน้าเดิมนี้เอง (ไม่ต้องมี URL แยก) —
+    // Supabase จะแปะ token ใน URL hash แล้ว onAuthStateChange('PASSWORD_RECOVERY')
+    // ที่ดักไว้ตอนสร้าง client จะพาไปหน้าตั้งรหัสผ่านใหม่ให้อัตโนมัติ
+    const redirectTo = location.origin + location.pathname;
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+    $('forgot-sent').textContent = '📧 ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ ' + email + ' แล้ว (เช็กในอีเมล รวมถึงถังขยะ/สแปม)';
+    show('forgot-sent');
+  } catch(e) { showErr('forgot-err', e.message || 'ส่งลิงก์ไม่สำเร็จ'); }
+  finally { $('forgot-btn').disabled = false; }
+}
+
+async function submitNewPassword() {
+  const pw1 = $('reset-pw-new').value;
+  const pw2 = $('reset-pw-confirm').value;
+  hideErr('reset-pw-err');
+  if (!pw1 || pw1.length < 6) { showErr('reset-pw-err', 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'); return; }
+  if (pw1 !== pw2) { showErr('reset-pw-err', 'รหัสผ่านทั้งสองช่องไม่ตรงกัน'); return; }
+  $('reset-pw-btn').disabled = true;
+  try {
+    const { error } = await db.auth.updateUser({ password: pw1 });
+    if (error) throw error;
+    showToast('ตั้งรหัสผ่านใหม่เรียบร้อย กรุณาเข้าสู่ระบบอีกครั้งด้วยรหัสผ่านใหม่', 'success', 5000);
+    await db.auth.signOut();
+    _isPasswordRecovery = false;
+    history.replaceState(null, '', location.pathname); // ล้าง token ออกจาก URL
+    hide('screen-reset-password');
+    show('screen-login');
+  } catch(e) { showErr('reset-pw-err', e.message || 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ'); }
+  finally { $('reset-pw-btn').disabled = false; }
 }
 
 function bootAdmin() {
@@ -2098,6 +2199,11 @@ async function sha256(text) {
 
 // ==================== Init ====================
 window.addEventListener('DOMContentLoaded', async()=>{
+  // ถ้าเป็นลิงก์ตั้งรหัสผ่านใหม่จากอีเมล (มี type=recovery ใน URL hash) อย่าเพิ่ง
+  // ไปเช็ค session/ล็อกอินตามปกติ — รอให้ onAuthStateChange('PASSWORD_RECOVERY')
+  // (ดักไว้ตอนสร้าง db client) พาไปหน้าตั้งรหัสผ่านใหม่แทน ไม่งั้นจะโดนหน้า
+  // login/main ทับก่อนเพราะ event นั้นมาแบบ async
+  if (_isPasswordRecovery || location.hash.includes('type=recovery')) return;
   if (IS_CONFIGURED && db) {
     const {data:{session}}=await db.auth.getSession();
     if (session) {
