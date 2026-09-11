@@ -6,6 +6,16 @@
 <title>PGO Saraburi — กิจกรรม</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  // กันเคส: ลิงก์ตั้งรหัสผ่านใหม่ของแอดมิน (Supabase password recovery) ตั้ง
+  // redirect ไว้ที่โดเมนหลัก (หน้านี้) แทนที่จะเป็น admin.html โดยตรง —
+  // ต้องเช็คและเด้งไป admin.html ทันที "ก่อน" โหลด supabase-js สร้าง client
+  // ของหน้านี้ ไม่งั้น client ของ index.html จะแอบกิน token ใน URL hash ไปเอง
+  // เงียบๆ แล้วไม่มี UI ไหนรองรับ ทำให้แอดมินตั้งรหัสผ่านใหม่ไม่ได้เลย
+  if (location.hash.includes('type=recovery')) {
+    location.replace('admin.html' + location.hash);
+  }
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <link rel="stylesheet" href="style.css?v=8">
