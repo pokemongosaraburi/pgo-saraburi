@@ -359,7 +359,7 @@
       <hr style="border:none;border-top:1px solid #f0f0f0;margin:16px 0">
       <div style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:8px">กล้องไม่ได้? พิมพ์ Token ด้านล่าง</div>
       <div style="display:flex;gap:8px">
-        <input id="manual-token-input" class="form-input" placeholder="วาง Token จาก QR ที่นี่" style="flex:1;font-size:13px">
+        <input id="manual-token-input" class="form-input" placeholder="เช่น A7K9X2QP" style="flex:1;font-size:13px;text-transform:uppercase">
         <button class="btn btn-secondary btn-sm" onclick="manualScanToken()" style="flex-shrink:0;white-space:nowrap">✅ ยืนยัน</button>
       </div>
     </div>
@@ -796,7 +796,7 @@ async function scanLoop() {
 // fallback: แอดมินพิมพ์ token เอง
 function manualScanToken() {
   const input = $('manual-token-input');
-  const token = (input?.value || '').trim();
+  const token = (input?.value || '').trim().toUpperCase().replace(/[\s-]/g, '');
   if (!token) return;
   input.value       = '';
   _lastScannedToken = '';
